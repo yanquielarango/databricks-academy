@@ -1,0 +1,309 @@
+{
+  "datasets": [
+    {
+      "name": "b2096016",
+      "displayName": "global_population_counts_by_Continent_overview",
+      "queryLines": [
+        "SELECT Continent, total_population\n",
+        "FROM dbr_dev.yanquiel.gld_population_by_continent\n",
+        "ORDER BY total_population DESC"
+      ]
+    },
+    {
+      "name": "2da4c2dd",
+      "displayName": "top_10_most_populated_countries",
+      "queryLines": [
+        "SELECT country, Continent, population_2022, capital, currency_code\n",
+        "FROM dbr_dev.yanquiel.gld_population_enriched\n",
+        "ORDER BY population_2022 DESC\n",
+        "LIMIT 10"
+      ]
+    },
+    {
+      "name": "world_population_map",
+      "displayName": "World population by country",
+      "queryLines": [
+        "SELECT\n",
+        "  country,\n",
+        "  Continent,\n",
+        "  population_2022\n",
+        "FROM\n",
+        "  gld_population_enriched"
+      ],
+      "catalog": "dbr_dev",
+      "schema": "yanquiel"
+    },
+    {
+      "name": "population_kpis",
+      "displayName": "Population KPIs",
+      "queryLines": [
+        "SELECT\n",
+        "  Continent,\n",
+        "  total_population,\n",
+        "  num_countries,\n",
+        "  avg_growth_rate\n",
+        "FROM\n",
+        "  gld_population_by_continent"
+      ],
+      "catalog": "dbr_dev",
+      "schema": "yanquiel"
+    },
+    {
+      "name": "world_population_trend",
+      "displayName": "World population trend",
+      "queryLines": [
+        "SELECT\n",
+        "  Continent,\n",
+        "  CAST(year AS INT) AS year,\n",
+        "  SUM(population) AS total_population\n",
+        "FROM\n",
+        "  (\n",
+        "    SELECT\n",
+        "      Continent,\n",
+        "      1970 AS year,\n",
+        "      `1970_Population` AS population\n",
+        "    FROM\n",
+        "      brz_world_population\n",
+        "    UNION ALL\n",
+        "    SELECT\n",
+        "      Continent,\n",
+        "      1980 AS year,\n",
+        "      `1980_Population` AS population\n",
+        "    FROM\n",
+        "      brz_world_population\n",
+        "    UNION ALL\n",
+        "    SELECT\n",
+        "      Continent,\n",
+        "      1990 AS year,\n",
+        "      `1990_Population` AS population\n",
+        "    FROM\n",
+        "      brz_world_population\n",
+        "    UNION ALL\n",
+        "    SELECT\n",
+        "      Continent,\n",
+        "      2000 AS year,\n",
+        "      `2000_Population` AS population\n",
+        "    FROM\n",
+        "      brz_world_population\n",
+        "    UNION ALL\n",
+        "    SELECT\n",
+        "      Continent,\n",
+        "      2010 AS year,\n",
+        "      `2010_Population` AS population\n",
+        "    FROM\n",
+        "      brz_world_population\n",
+        "    UNION ALL\n",
+        "    SELECT\n",
+        "      Continent,\n",
+        "      2015 AS year,\n",
+        "      `2015_Population` AS population\n",
+        "    FROM\n",
+        "      brz_world_population\n",
+        "    UNION ALL\n",
+        "    SELECT\n",
+        "      Continent,\n",
+        "      2020 AS year,\n",
+        "      `2020_Population` AS population\n",
+        "    FROM\n",
+        "      brz_world_population\n",
+        "    UNION ALL\n",
+        "    SELECT\n",
+        "      Continent,\n",
+        "      2022 AS year,\n",
+        "      `2022_Population` AS population\n",
+        "    FROM\n",
+        "      brz_world_population\n",
+        "  ) t\n",
+        "GROUP BY\n",
+        "  Continent,\n",
+        "  year\n",
+        "ORDER BY\n",
+        "  year,\n",
+        "  Continent"
+      ],
+      "catalog": "dbr_dev",
+      "schema": "yanquiel"
+    },
+    {
+      "name": "most_populous_country",
+      "displayName": "Most populous country",
+      "queryLines": [
+        "SELECT\n",
+        "  country,\n",
+        "  Continent,\n",
+        "  population_2022\n",
+        "FROM\n",
+        "  gld_population_enriched\n",
+        "ORDER BY\n",
+        "  population_2022 DESC\n",
+        "LIMIT 1"
+      ],
+      "catalog": "dbr_dev",
+      "schema": "yanquiel"
+    }
+  ],
+  "pages": [
+    {
+      "name": "global_filters",
+      "displayName": "Global Filters",
+      "layout": [
+        {
+          "widget": {
+            "name": "filter_continent",
+            "queries": [
+              {
+                "name": "dashboards/01f1793154a31ca3a55d6ab89d570e7e/datasets/01f1793199631077af1b5eee1c029fa9_Continent",
+                "query": {
+                  "datasetName": "b2096016",
+                  "fields": [
+                    {
+                      "name": "Continent",
+                      "expression": "`Continent`"
+                    },
+                    {
+                      "name": "Continent_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Filtro de continente",
+                "showTitle": true
+              },
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "Continent",
+                    "queryName": "dashboards/01f1793154a31ca3a55d6ab89d570e7e/datasets/01f1793199631077af1b5eee1c029fa9_Continent"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 3
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_GLOBAL_FILTERS",
+      "layoutVersion": "GRID_V1"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "canvasBackgroundColor": {
+        "light": "#F8FAFC",
+        "dark": "#111827"
+      },
+      "widgetBackgroundColor": {
+        "light": "#FFFFFF",
+        "dark": "#1F2937"
+      },
+      "widgetBorderColor": {
+        "light": "#E5E7EB",
+        "dark": "#374151"
+      },
+      "fontColor": {
+        "light": "#1F2937",
+        "dark": "#E5E7EB"
+      },
+      "selectionColor": {
+        "light": "#2563EB",
+        "dark": "#60A5FA"
+      },
+      "visualizationColors": [
+        "#2563EB",
+        "#0F766E",
+        "#7C3AED",
+        "#F59E0B",
+        "#DC2626",
+        "#0891B2"
+      ],
+      "widgetHeaderAlignment": "LEFT",
+      "fontFamily": "Inter",
+      "textBoxVerticalAlign": "VERTICAL_ALIGN_TOP",
+      "widgetPadding": 12,
+      "widgetMargin": 8,
+      "widgetCornerRadius": 12,
+      "widgetShadow": 10,
+      "continuousGradient": {
+        "lightMode": {
+          "colorScheme": "blues"
+        },
+        "darkMode": {
+          "colorScheme": "blues"
+        }
+      },
+      "fontSettings": {
+        "base": {
+          "fontFamily": "Inter",
+          "textCase": "TEXT_CASE_UNSPECIFIED",
+          "fontColor": {
+            "light": "#1F2937",
+            "dark": "#E5E7EB"
+          },
+          "fontSize": 14,
+          "fontWeight": 400
+        },
+        "widgetTitle": {
+          "fontFamily": "Inter",
+          "textCase": "TEXT_CASE_UNSPECIFIED",
+          "fontColor": {
+            "light": "#0F172A",
+            "dark": "#F8FAFC"
+          },
+          "fontSize": 18,
+          "fontWeight": 700
+        },
+        "widgetDescription": {
+          "fontFamily": "Inter",
+          "textCase": "TEXT_CASE_UNSPECIFIED",
+          "fontColor": {
+            "light": "#64748B",
+            "dark": "#94A3B8"
+          },
+          "fontSize": 13,
+          "fontWeight": 400
+        },
+        "fieldTitle": {
+          "fontFamily": "Inter",
+          "textCase": "TEXT_CASE_UPPERCASE",
+          "fontColor": {
+            "light": "#64748B",
+            "dark": "#94A3B8"
+          },
+          "fontSize": 12,
+          "fontWeight": 600
+        },
+        "fieldValue": {
+          "fontFamily": "Inter",
+          "textCase": "TEXT_CASE_UNSPECIFIED",
+          "fontColor": {
+            "light": "#0F172A",
+            "dark": "#F8FAFC"
+          },
+          "fontSize": 22,
+          "fontWeight": 700
+        }
+      },
+      "gridLineColor": {
+        "light": "#E5E7EB",
+        "dark": "#374151"
+      },
+      "axisLineColor": {
+        "light": "#CBD5E1",
+        "dark": "#4B5563"
+      }
+    },
+    "applyModeEnabled": false
+  }
+}
