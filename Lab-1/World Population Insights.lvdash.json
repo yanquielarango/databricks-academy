@@ -1,0 +1,837 @@
+{
+  "datasets": [
+    {
+      "name": "d50d7ff9",
+      "displayName": "Kpis",
+      "queryLines": [
+        "SELECT\n",
+        "  MAX(Continent) AS Continent,\n",
+        "  SUM(population_2022) AS world_total_population,\n",
+        "  MAX_BY(country, population_2022) AS most_populous_country,\n",
+        "  AVG(density_km2) AS avg_population_density,\n",
+        "  COUNT(DISTINCT country) AS country_count\n",
+        "FROM dbr_dev.yanquiel.gld_population\n",
+        "WHERE (:continent_filter = 'All' OR Continent = :continent_filter)"
+      ],
+      "parameters": [
+        {
+          "displayName": "continent_filter",
+          "keyword": "continent_filter",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "All"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "229beab8",
+      "displayName": "country_detail",
+      "queryLines": [
+        "SELECT country, Continent, capital, region, population_2022, density_km2\n",
+        "FROM dbr_dev.yanquiel.gld_population\n",
+        "WHERE (:continent_filter = 'All' OR Continent = :continent_filter)\n",
+        "ORDER BY population_2022 DESC"
+      ],
+      "parameters": [
+        {
+          "displayName": "continent_filter",
+          "keyword": "continent_filter",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "All"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3a411f8c",
+      "displayName": "by_continent",
+      "queryLines": [
+        "SELECT DISTINCT Continent, continent_total_population, continent_num_countries\n",
+        "FROM dbr_dev.yanquiel.gld_population\n",
+        "WHERE (:continent_filter = 'All' OR Continent = :continent_filter)"
+      ],
+      "parameters": [
+        {
+          "displayName": "continent_filter",
+          "keyword": "continent_filter",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "All"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "top_10_countries",
+      "displayName": "Top 10 Countries",
+      "queryLines": [
+        "SELECT\n",
+        "  country,\n",
+        "  Continent,\n",
+        "  capital,\n",
+        "  region,\n",
+        "  population_2022\n",
+        "FROM\n",
+        "  dbr_dev.yanquiel.gld_population\n",
+        "WHERE\n",
+        "  (\n",
+        "    :continent_filter = 'All'\n",
+        "    OR Continent = :continent_filter\n",
+        "  )\n",
+        "ORDER BY\n",
+        "  population_2022 DESC\n",
+        "LIMIT 10"
+      ],
+      "parameters": [
+        {
+          "displayName": "Continent",
+          "keyword": "continent_filter",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "All"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "continent_filter_options",
+      "displayName": "Continent Filter Options",
+      "queryLines": [
+        "SELECT\n",
+        "  'All' AS Continent\n",
+        "UNION ALL\n",
+        "SELECT DISTINCT\n",
+        "  Continent\n",
+        "FROM\n",
+        "  dbr_dev.yanquiel.gld_population\n",
+        "WHERE\n",
+        "  Continent IS NOT NULL\n",
+        "ORDER BY\n",
+        "  CASE\n",
+        "    WHEN Continent = 'All' THEN 0\n",
+        "    ELSE 1\n",
+        "  END,\n",
+        "  Continent"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "403ae352",
+      "displayName": "Overview",
+      "layout": [
+        {
+          "widget": {
+            "name": "total-world-population",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "d50d7ff9",
+                  "fields": [
+                    {
+                      "name": "sum(world_total_population)",
+                      "expression": "SUM(`world_total_population`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Total World Population",
+                "headerAlignment": "center"
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(world_total_population)",
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "compact"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "8f9e2388",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "d50d7ff9",
+                  "fields": [
+                    {
+                      "name": "most_populous_country",
+                      "expression": "`most_populous_country`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Most Populous Country",
+                "headerAlignment": "center"
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "most_populous_country"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 0,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "avg-population-density",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "d50d7ff9",
+                  "fields": [
+                    {
+                      "name": "sum(avg_population_density)",
+                      "expression": "SUM(`avg_population_density`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Average Population Density",
+                "headerAlignment": "center"
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(avg_population_density)",
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "none",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 0,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "9bd54ad9",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "d50d7ff9",
+                  "fields": [
+                    {
+                      "name": "sum(country_count)",
+                      "expression": "SUM(`country_count`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Total Countries",
+                "headerAlignment": "center"
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(country_count)",
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "none"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 9,
+            "y": 0,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "population-by-country",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "229beab8",
+                  "fields": [
+                    {
+                      "name": "sum(population_2022)",
+                      "expression": "SUM(`population_2022`)"
+                    },
+                    {
+                      "name": "country",
+                      "expression": "`country`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "frame": {
+                "showTitle": true,
+                "title": "Population by Country Map"
+              },
+              "widgetType": "choropleth-map",
+              "encodings": {
+                "color": {
+                  "fieldName": "sum(population_2022)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "region": {
+                  "regionType": "mapbox-v4-admin",
+                  "admin0": {
+                    "fieldName": "country",
+                    "type": "field",
+                    "geographicRole": "admin0-name"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 5,
+            "y": 3,
+            "width": 7,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "countries-per-continent",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "3a411f8c",
+                  "fields": [
+                    {
+                      "name": "sum(continent_num_countries)",
+                      "expression": "SUM(`continent_num_countries`)"
+                    },
+                    {
+                      "name": "Continent",
+                      "expression": "`Continent`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "showTitle": true,
+                "title": "Countries per Continent"
+              },
+              "widgetType": "pie",
+              "encodings": {
+                "angle": {
+                  "fieldName": "sum(continent_num_countries)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "Continent",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 5,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "top-countries-population",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "top_10_countries",
+                  "fields": [
+                    {
+                      "name": "country",
+                      "expression": "`country`"
+                    },
+                    {
+                      "name": "Continent",
+                      "expression": "`Continent`"
+                    },
+                    {
+                      "name": "capital",
+                      "expression": "`capital`"
+                    },
+                    {
+                      "name": "region",
+                      "expression": "`region`"
+                    },
+                    {
+                      "name": "population_2022",
+                      "expression": "`population_2022`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Top 10 Countries by Population"
+              },
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "country",
+                    "useForSearch": true
+                  },
+                  {
+                    "fieldName": "Continent",
+                    "useForSearch": true
+                  },
+                  {
+                    "fieldName": "capital",
+                    "useForSearch": true
+                  },
+                  {
+                    "fieldName": "region",
+                    "useForSearch": true
+                  },
+                  {
+                    "fieldName": "population_2022",
+                    "useForSearch": false,
+                    "format": {
+                      "type": "number-plain",
+                      "abbreviation": "compact"
+                    }
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 9,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "population_by_continent",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "3a411f8c",
+                  "fields": [
+                    {
+                      "name": "Continent",
+                      "expression": "`Continent`"
+                    },
+                    {
+                      "name": "sum(continent_total_population)",
+                      "expression": "SUM(`continent_total_population`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "showTitle": true,
+                "title": "Population by Continent"
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "Continent",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "y-reversed"
+                    }
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(continent_total_population)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 9,
+            "width": 6,
+            "height": 6
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "fca19f94",
+      "displayName": "Global Filters",
+      "layout": [
+        {
+          "widget": {
+            "name": "56f21197",
+            "queries": [
+              {
+                "name": "dashboards/01f179930a61145f8b6d6cb87faeabbd/datasets/01f179d38ab41de9ad0b1230963dac90_Continent",
+                "query": {
+                  "datasetName": "continent_filter_options",
+                  "fields": [
+                    {
+                      "name": "Continent",
+                      "expression": "`Continent`"
+                    },
+                    {
+                      "name": "Continent_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "parameter_dashboards/01f179930a61145f8b6d6cb87faeabbd/datasets/01f179cac6a911079623c7499cd685d8_continent_filter",
+                "query": {
+                  "datasetName": "d50d7ff9",
+                  "parameters": [
+                    {
+                      "name": "continent_filter",
+                      "keyword": "continent_filter"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "parameter_dashboards/01f179930a61145f8b6d6cb87faeabbd/datasets/01f179ce1a2915e0bd2fee8d3134a917_continent_filter",
+                "query": {
+                  "datasetName": "229beab8",
+                  "parameters": [
+                    {
+                      "name": "continent_filter",
+                      "keyword": "continent_filter"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "parameter_dashboards/01f179930a61145f8b6d6cb87faeabbd/datasets/01f179ced4e4132ebdd74215e8f9eb40_continent_filter",
+                "query": {
+                  "datasetName": "3a411f8c",
+                  "parameters": [
+                    {
+                      "name": "continent_filter",
+                      "keyword": "continent_filter"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "parameter_dashboards/01f179930a61145f8b6d6cb87faeabbd/datasets/01f179d38972148d8a18fd05201e7295_continent_filter",
+                "query": {
+                  "datasetName": "top_10_countries",
+                  "parameters": [
+                    {
+                      "name": "continent_filter",
+                      "keyword": "continent_filter"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "scale": {
+                "type": "categorical",
+                "sort": {
+                  "by": "natural-order"
+                }
+              },
+              "selection": {
+                "defaultSelection": {
+                  "values": {
+                    "dataType": "STRING",
+                    "values": [
+                      {
+                        "value": "All"
+                      }
+                    ]
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Continent Filter"
+              },
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "Continent",
+                    "queryName": "dashboards/01f179930a61145f8b6d6cb87faeabbd/datasets/01f179d38ab41de9ad0b1230963dac90_Continent"
+                  },
+                  {
+                    "parameterName": "continent_filter",
+                    "queryName": "parameter_dashboards/01f179930a61145f8b6d6cb87faeabbd/datasets/01f179cac6a911079623c7499cd685d8_continent_filter"
+                  },
+                  {
+                    "parameterName": "continent_filter",
+                    "queryName": "parameter_dashboards/01f179930a61145f8b6d6cb87faeabbd/datasets/01f179ce1a2915e0bd2fee8d3134a917_continent_filter"
+                  },
+                  {
+                    "parameterName": "continent_filter",
+                    "queryName": "parameter_dashboards/01f179930a61145f8b6d6cb87faeabbd/datasets/01f179ced4e4132ebdd74215e8f9eb40_continent_filter"
+                  },
+                  {
+                    "parameterName": "continent_filter",
+                    "queryName": "parameter_dashboards/01f179930a61145f8b6d6cb87faeabbd/datasets/01f179d38972148d8a18fd05201e7295_continent_filter"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 2
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_GLOBAL_FILTERS",
+      "layoutVersion": "GRID_V1"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "canvasBackgroundColor": {
+        "light": "#F6F8FB",
+        "dark": "#111827"
+      },
+      "widgetBackgroundColor": {
+        "light": "#FFFFFF",
+        "dark": "#1F2937"
+      },
+      "widgetBorderColor": {
+        "light": "#E5E7EB",
+        "dark": "#374151"
+      },
+      "fontColor": {
+        "light": "#111827",
+        "dark": "#F9FAFB"
+      },
+      "selectionColor": {
+        "light": "#2563EB",
+        "dark": "#60A5FA"
+      },
+      "visualizationColors": [
+        "#2563EB",
+        "#14B8A6",
+        "#F59E0B",
+        "#8B5CF6",
+        "#EF4444",
+        "#06B6D4"
+      ],
+      "widgetHeaderAlignment": "LEFT",
+      "fontFamily": "Inter",
+      "widgetPadding": 12,
+      "widgetMargin": 8,
+      "widgetCornerRadius": 12,
+      "widgetShadow": 10,
+      "continuousGradient": {
+        "lightMode": {
+          "colorScheme": "viridis"
+        },
+        "darkMode": {
+          "colorScheme": "viridis"
+        }
+      },
+      "fontSettings": {
+        "base": {
+          "fontFamily": "Inter",
+          "textCase": "TEXT_CASE_UNSPECIFIED",
+          "fontColor": {
+            "light": "#111827",
+            "dark": "#F9FAFB"
+          },
+          "fontSize": 12,
+          "fontWeight": 400
+        },
+        "widgetTitle": {
+          "fontFamily": "Inter",
+          "textCase": "TEXT_CASE_UNSPECIFIED",
+          "fontColor": {
+            "light": "#111827",
+            "dark": "#F9FAFB"
+          },
+          "fontSize": 13,
+          "fontWeight": 600
+        },
+        "fieldTitle": {
+          "fontFamily": "Inter",
+          "textCase": "TEXT_CASE_UPPERCASE",
+          "fontColor": {
+            "light": "#6B7280",
+            "dark": "#D1D5DB"
+          },
+          "fontSize": 11,
+          "fontWeight": 500
+        },
+        "fieldValue": {
+          "fontFamily": "Inter",
+          "textCase": "TEXT_CASE_UNSPECIFIED",
+          "fontColor": {
+            "light": "#0F172A",
+            "dark": "#F9FAFB"
+          },
+          "fontSize": 13,
+          "fontWeight": 500
+        }
+      },
+      "gridLineColor": {
+        "light": "#E5E7EB",
+        "dark": "#374151"
+      },
+      "axisLineColor": {
+        "light": "#CBD5E1",
+        "dark": "#4B5563"
+      }
+    },
+    "applyModeEnabled": false
+  }
+}
