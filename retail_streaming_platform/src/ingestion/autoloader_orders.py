@@ -1,8 +1,8 @@
-
+# src/ingestion/autoloader_orders.py
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import current_timestamp, col
 
-STORAGE_ACCOUNT = "yanquiel"
+STORAGE_ACCOUNT = "dlspl26databricks"   # <- corregido
 CONTAINER = "yanquiel"
 BASE_PATH = f"abfss://{CONTAINER}@{STORAGE_ACCOUNT}.dfs.core.windows.net/landing"
 
@@ -18,7 +18,6 @@ BRONZE_TABLE = f"{CATALOG}.{SCHEMA}.brz_order_details"
 def main():
     spark = SparkSession.builder.getOrCreate()
 
-  
     df = (spark.readStream
         .format("cloudFiles")
         .option("cloudFiles.format", "csv")
@@ -33,7 +32,6 @@ def main():
         .withColumn("_source_file", col("_metadata.file_name"))
     )
 
-  
     query = (df_enriched.writeStream
         .format("delta")
         .option("checkpointLocation", CHECKPOINT_LOCATION)
