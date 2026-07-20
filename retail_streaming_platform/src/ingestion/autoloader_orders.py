@@ -35,6 +35,7 @@ def main():
     query = (df_enriched.writeStream
         .format("delta")
         .option("checkpointLocation", CHECKPOINT_LOCATION)
+        .option("mergeSchema", "true")
         .trigger(availableNow=True)
         .toTable(BRONZE_TABLE)
     )
