@@ -1,0 +1,12 @@
+resources:
+  jobs:
+    autoloader_orders_job:
+      name: autoloader_orders_job
+      tasks:
+        - task_key: run_autoloader
+          new_cluster:
+            spark_version: "15.4.x-scala2.12"
+            node_type_id: "Standard_DS3_v2"
+            num_workers: 1
+          spark_python_task:
+            python_file: ../../src/ingestion/autoloader_orders.py
