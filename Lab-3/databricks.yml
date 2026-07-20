@@ -1,7 +1,7 @@
-# This is a Databricks asset bundle definition for retail_streaming_platform.
+# This is a Databricks asset bundle definition for Lab-3
 # See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
 bundle:
-  name: retail_streaming_platform
+  name: Lab-3
   uuid: 52528a2a-11d7-4f51-a0de-e59ecc294093
 
 include:
