@@ -3,8 +3,8 @@ from pathlib import Path
 import shutil
 
 
-SOURCE_FOLDER = Path("/Volumes/dbr_dev/yanquiel_dabs/staging/orders")
-TARGET_FOLDER = Path("/Volumes/dbr_dev/yanquiel_dabs/landing/orders")
+SOURCE_FOLDER = Path("/Volumes/dbr_dev/yanquiel_bronze/staging/orders")
+TARGET_FOLDER = Path("/Volumes/dbr_dev/yanquiel_bronze/landing/orders")
 SECONDS_BETWEEN_BATCHES = 5
 
 TARGET_FOLDER.mkdir(parents=True, exist_ok=True)
