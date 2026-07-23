@@ -15,8 +15,8 @@ def get_eventhub_connection_string():
 
 EVENTHUB_NAME = "orders-eventhub"
 
-ORDERS_SOURCE = "/Volumes/dbr_dev/yanquiel/staging/data/order_details.csv"
-MENU_SOURCE = "/Volumes/dbr_dev/yanquiel/staging/data/menu_items.csv"
+ORDERS_SOURCE = "/Volumes/dbr_dev/yanquiel_bronze/staging/data/order_details.csv"
+MENU_SOURCE = "/Volumes/dbr_dev/yanquiel_bronze/staging/data/menu_items.csv"
 
 EVENTS_PER_BATCH = 10
 SECONDS_BETWEEN_BATCHES = 5

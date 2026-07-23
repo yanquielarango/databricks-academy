@@ -4,8 +4,8 @@ from pathlib import Path
 import pandas as pd
 
 
-SOURCE = "/Volumes/dbr_dev/yanquiel/staging/data/order_details.csv"
-LANDING_PATH = Path("/Volumes/dbr_dev/yanquiel/landing/orders")
+SOURCE = "/Volumes/dbr_dev/yanquiel_bronze/staging/data/order_details.csv"
+LANDING_PATH = Path("/Volumes/dbr_dev/yanquiel_bronze/landing/orders")
 
 
 def get_next_batch_number():
