@@ -1,35 +1,32 @@
 resources:
   jobs:
-    orders_batch_ingestion_job:
-      name: orders_batch_ingestion_job
+    generate_batch_job:
+      name: generate_batch_job
+
+      parameters:
+        - name: scenario
+          default: "reload"
 
       tasks:
 
-        - task_key: split_orders
+        - task_key: generate_batch
 
           existing_cluster_id: 0702-132442-toro5spu
 
           spark_python_task:
-            python_file: ../../src/Lab/split_orders.py
+            python_file: ../src/Lab_3/generate_batch.py
 
-
-        - task_key: simulate_file_arrival
-
-          depends_on:
-            - task_key: split_orders
-
-          existing_cluster_id: 0702-132442-toro5spu
-
-          spark_python_task:
-            python_file: ../../src/Lab/simulate_file_arrival.py
+            parameters:
+              - "--scenario"
+              - "{{job.parameters.scenario}}"
 
 
         - task_key: autoloader_orders
 
           depends_on:
-            - task_key: simulate_file_arrival
+            - task_key: generate_batch
 
           existing_cluster_id: 0702-132442-toro5spu
 
           notebook_task:
-            notebook_path: ../../src/Lab/autoloader_orders.ipynb
+            notebook_path: ../src/Lab_3/autoloader_orders.ipynb

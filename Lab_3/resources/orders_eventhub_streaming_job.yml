@@ -14,7 +14,7 @@ resources:
           existing_cluster_id: 0702-132442-toro5spu
 
           spark_python_task:
-            python_file: ../../src/Lab/eventhub_producer.py
+            python_file: ../src/Lab_3/eventhub_producer.py
 
           libraries:
             - pypi:
@@ -26,4 +26,4 @@ resources:
           existing_cluster_id: 0702-132442-toro5spu
 
           notebook_task:
-            notebook_path: ../../src/Lab/eventhub_consumer.ipynb
+            notebook_path: ../src/Lab_3/eventhub_consumer.ipynb

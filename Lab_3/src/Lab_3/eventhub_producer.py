@@ -8,12 +8,12 @@ from azure.eventhub import EventHubProducerClient, EventData
 
 def get_eventhub_connection_string():
     return dbutils.secrets.get(
-        scope="yanquiel_azure_secret",
+        scope="yanquiel_azure_secret_kv",
         key="eventhub-connection-string"
     )
 
 
-EVENTHUB_NAME = "orders-eventhub"
+EVENTHUB_NAME = "yanquiel_evh"
 
 ORDERS_SOURCE = "/Volumes/dbr_dev/yanquiel_bronze/staging/data/order_details.csv"
 MENU_SOURCE = "/Volumes/dbr_dev/yanquiel_bronze/staging/data/menu_items.csv"
@@ -36,6 +36,7 @@ def build_event(order_row, menu_lookup):
 
 def main():
     orders = pd.read_csv(ORDERS_SOURCE)
+    orders = orders.dropna(subset=["item_id"])
     menu = pd.read_csv(MENU_SOURCE).set_index("menu_item_id").to_dict(orient="index")
 
     client = EventHubProducerClient.from_connection_string(
