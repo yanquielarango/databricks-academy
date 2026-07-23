@@ -11,7 +11,7 @@ resources:
       tasks:
         - task_key: eventhub_producer
 
-          existing_cluster_id: 0708-224238-ketjva8y
+          existing_cluster_id: 0702-132442-toro5spu
 
           spark_python_task:
             python_file: ../../src/Lab/eventhub_producer.py
@@ -23,7 +23,7 @@ resources:
 
         - task_key: eventhub_consumer
 
-          existing_cluster_id: 0708-224238-ketjva8y
+          existing_cluster_id: 0702-132442-toro5spu
 
           notebook_task:
             notebook_path: ../../src/Lab/eventhub_consumer.ipynb
