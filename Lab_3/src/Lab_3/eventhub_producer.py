@@ -8,7 +8,7 @@ from azure.eventhub import EventHubProducerClient, EventData
 
 def get_eventhub_connection_string():
     return dbutils.secrets.get(
-        scope="azure-secrets",
+        scope="yanquiel_azure_secret",
         key="eventhub-connection-string"
     )
 
