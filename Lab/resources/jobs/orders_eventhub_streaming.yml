@@ -3,6 +3,11 @@ resources:
     orders_eventhub_streaming_job:
       name: orders_eventhub_streaming_job
 
+      schedule:
+        quartz_cron_expression: "0 0 */6 * * ?"
+        timezone_id: "Europe/Warsaw"
+        pause_status: PAUSED
+
       tasks:
         - task_key: eventhub_producer
 
