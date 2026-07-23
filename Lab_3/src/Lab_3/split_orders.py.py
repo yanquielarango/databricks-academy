@@ -3,8 +3,8 @@ import numpy as np
 from pathlib import Path
 from datetime import datetime, timezone
 
-SOURCE = "/Volumes/dbr_dev/yanquiel_dabs/staging/data/order_details.csv"
-OUTPUT_FOLDER = Path("/Volumes/dbr_dev/yanquiel_dabs/staging/orders")
+SOURCE = "/Volumes/dbr_dev/yanquiel/staging/data/order_details.csv"
+OUTPUT_FOLDER = Path("/Volumes/dbr_dev/yanquiel/staging/orders")
 
 TOTAL_FILES = 1000
 FILES_PER_BATCH = 100
