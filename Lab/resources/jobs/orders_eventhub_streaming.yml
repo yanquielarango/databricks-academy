@@ -1,0 +1,24 @@
+resources:
+  jobs:
+    orders_eventhub_streaming_job:
+      name: orders_eventhub_streaming_job
+
+      tasks:
+        - task_key: eventhub_producer
+
+          existing_cluster_id: 0708-224238-ketjva8y
+
+          spark_python_task:
+            python_file: ../../src/Lab/eventhub_producer.py
+
+          libraries:
+            - pypi:
+                package: azure-eventhub
+
+
+        - task_key: eventhub_consumer
+
+          existing_cluster_id: 0708-224238-ketjva8y
+
+          notebook_task:
+            notebook_path: ../../src/Lab/eventhub_consumer.ipynb

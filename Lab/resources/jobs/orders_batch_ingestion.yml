@@ -1,0 +1,35 @@
+resources:
+  jobs:
+    orders_batch_ingestion_job:
+      name: orders_batch_ingestion_job
+
+      tasks:
+
+        - task_key: split_orders
+
+          existing_cluster_id: 0708-224238-ketjva8y
+
+          spark_python_task:
+            python_file: ../../src/Lab/split_orders.py
+
+
+        - task_key: simulate_file_arrival
+
+          depends_on:
+            - task_key: split_orders
+
+          existing_cluster_id: 0708-224238-ketjva8y
+
+          spark_python_task:
+            python_file: ../../src/Lab/simulate_file_arrival.py
+
+
+        - task_key: autoloader_orders
+
+          depends_on:
+            - task_key: simulate_file_arrival
+
+          existing_cluster_id: 0708-224238-ketjva8y
+
+          notebook_task:
+            notebook_path: ../../src/Lab/autoloader_orders.ipynb
