@@ -1,0 +1,46 @@
+# Databricks Asset Bundle definition for Lab_4
+
+bundle:
+  name: Lab_4
+
+include:
+  - resources/*.yml
+
+variables:
+  catalog:
+    description: The catalog to use
+
+  schema:
+    description: The schema to use
+
+
+targets:
+
+  dev:
+    mode: development
+    default: true
+
+    workspace:
+      host: https://dbc-c04a5ad1-7844.cloud.databricks.com
+      profile: lab_4
+
+    variables:
+      catalog: dbr_dev
+      schema: ${workspace.current_user.short_name}
+
+
+  prod:
+    mode: production
+
+    workspace:
+      host: https://dbc-c04a5ad1-7844.cloud.databricks.com
+      profile: lab_4
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+
+    variables:
+      catalog: dbr_dev
+      schema: prod
+
+    permissions:
+      - user_name: yanquiel.arango@gmail.com
+        level: CAN_MANAGE

@@ -1,0 +1,35 @@
+[project]
+name = "lab-4"
+version = "0.0.1"
+authors = [{ name = "yanquiel.arango@gmail.com" }]
+requires-python = ">=3.10,<3.13"
+
+dependencies = [
+    "pandas",
+    "numpy",
+    "confluent-kafka",
+    "databricks-sdk[notebook]>=0.123.0",
+]
+
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "ruff",
+    "databricks-dlt",
+    "databricks-connect>=15.4,<15.5",
+    "ipykernel",
+]
+
+
+[tool.uv]
+package = false
+
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+
+[tool.ruff]
+line-length = 120
