@@ -1,5 +1,5 @@
 import time
-from utils.kafka_common import build_producer, load_orders, send_batch
+from kafka_common import build_producer, load_orders, send_batch
 
 EVENTS_PER_BATCH = 100
 NUM_BATCHES = 10

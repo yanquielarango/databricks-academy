@@ -1,18 +1,25 @@
+import base64
 import json
 from pathlib import Path
 import pandas as pd
-from databricks.sdk.runtime import dbutils
+from databricks.sdk import WorkspaceClient
 from confluent_kafka import Producer
 
 BOOTSTRAP_SERVERS = "pkc-56d1g.eastus.azure.confluent.cloud:9092"
-TOPIC_NAME = "orders-events"
+TOPIC_NAME = "orders_event"
 
 ORDERS_SOURCE = Path(__file__).resolve().parent.parent / "data" / "order_details.csv"
 
 
 def get_confluent_credentials():
-    api_key = dbutils.secrets.get(scope="confluent-scope", key="api-key")
-    api_secret = dbutils.secrets.get(scope="confluent-scope", key="api-secret")
+    w = WorkspaceClient(profile="lab_4")
+
+    api_key_b64 = w.secrets.get_secret(scope="confluent-scope", key="api-key").value
+    api_secret_b64 = w.secrets.get_secret(scope="confluent-scope", key="api-secret").value
+
+    api_key = base64.b64decode(api_key_b64).decode("utf-8")
+    api_secret = base64.b64decode(api_secret_b64).decode("utf-8")
+
     return api_key, api_secret
 
 
