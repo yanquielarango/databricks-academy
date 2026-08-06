@@ -3,10 +3,15 @@ name: Validate bundle
 on:
   pull_request:
     branches: [main]
+    paths:
+      - "Lab_4/**"
 
 jobs:
   validate:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Lab_4
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4

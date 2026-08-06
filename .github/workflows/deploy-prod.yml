@@ -7,6 +7,9 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Lab_4
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
