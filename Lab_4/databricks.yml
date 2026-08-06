@@ -18,18 +18,14 @@ variables:
   cluster_id:
     description: Existing cluster id for production
     default: ""
-
-
 targets:
 
   dev:
-
     mode: development
     default: true
 
     workspace:
       host: https://dbc-c04a5ad1-7844.cloud.databricks.com
-      profile: lab_4
       root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
 
     variables:
@@ -39,12 +35,10 @@ targets:
 
 
   prod:
-
     mode: production
 
     workspace:
       host: https://adb-7405604503619901.1.azuredatabricks.net
-      profile: lab_4_prod
       root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
 
     variables:
