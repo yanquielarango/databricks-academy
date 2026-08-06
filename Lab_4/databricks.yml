@@ -1,5 +1,3 @@
-# Databricks Asset Bundle definition for Lab_4
-
 bundle:
   name: Lab_4
 
@@ -7,30 +5,27 @@ include:
   - resources/*.yml
 
 variables:
+
   catalog:
     description: The catalog to use
 
-  schema:
-    description: The schema to use
+  bronze_schema:
+    description: The bronze schema to use
+
+  silver_schema:
+    description: The silver schema to use
+
+  cluster_id:
+    description: Existing cluster id for production
+    default: ""
 
 
 targets:
 
   dev:
+
     mode: development
     default: true
-
-    workspace:
-      host: https://dbc-c04a5ad1-7844.cloud.databricks.com
-      profile: lab_4
-
-    variables:
-      catalog: dbr_dev
-      schema: ${workspace.current_user.short_name}
-
-
-  prod:
-    mode: production
 
     workspace:
       host: https://dbc-c04a5ad1-7844.cloud.databricks.com
@@ -39,8 +34,39 @@ targets:
 
     variables:
       catalog: dbr_dev
-      schema: prod
+      bronze_schema: ${workspace.current_user.short_name}_bronze
+      silver_schema: ${workspace.current_user.short_name}_silver
+
+
+  prod:
+
+    mode: production
+
+    workspace:
+      host: https://adb-7405604503619901.1.azuredatabricks.net
+      profile: lab_4_prod
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+
+    variables:
+      catalog: dbr_dev
+      bronze_schema: bronze
+      silver_schema: silver
+
+    resources:
+      jobs:
+        setup_job:
+          tasks:
+            - task_key: create_objects
+              existing_cluster_id: ${var.cluster_id}
+        bronze_orders_job:
+          tasks:
+            - task_key: ingest_orders_kafka
+              existing_cluster_id: ${var.cluster_id}
+        bronze_menu_job:
+          tasks:
+            - task_key: ingest_menu
+              existing_cluster_id: ${var.cluster_id}
 
     permissions:
-      - user_name: yanquiel.arango@gmail.com
+      - user_name: yanquiel@softserve.academy
         level: CAN_MANAGE

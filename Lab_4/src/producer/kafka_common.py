@@ -8,7 +8,8 @@ from confluent_kafka import Producer
 BOOTSTRAP_SERVERS = "pkc-56d1g.eastus.azure.confluent.cloud:9092"
 TOPIC_NAME = "orders_event"
 
-ORDERS_SOURCE = Path(__file__).resolve().parent.parent / "data" / "order_details.csv"
+
+ORDERS_SOURCE = (Path(__file__).resolve().parent.parent.parent/ "data"/ "order_details.csv")
 
 
 def get_confluent_credentials():
@@ -59,6 +60,7 @@ def send_batch(producer, orders_sample, id_offset=0, discount_code=None):
         event = build_event(row, id_offset, discount_code)
         producer.produce(
             TOPIC_NAME,
+            key=str(event["order_id"]).encode("utf-8"),
             value=json.dumps(event).encode("utf-8"),
             callback=delivery_report,
         )

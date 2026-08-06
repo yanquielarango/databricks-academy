@@ -1,0 +1,13 @@
+resources:
+  jobs:
+    bronze_orders_job:
+
+      name: ${bundle.name}-bronze-orders
+
+      tasks:
+        - task_key: ingest_orders_kafka
+          notebook_task:
+            notebook_path: ../notebooks/bronze/bronze_ingestion_orders_kafka.ipynb
+            base_parameters:
+              environment: ${bundle.target}
+              trigger_type: availableNow

@@ -18,4 +18,4 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--scenario", choices=["reload", "schema_change"], required=True)
     args = parser.parse_args()
-    main(args.scenario)
+    main(args.scenario) 

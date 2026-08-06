@@ -1,0 +1,12 @@
+resources:
+  jobs:
+    bronze_menu_job:
+
+      name: ${bundle.name}-bronze-menu
+
+      tasks:
+        - task_key: ingest_menu
+          notebook_task:
+            notebook_path: ../notebooks/bronze/bronze_menu.ipynb
+            base_parameters:
+              environment: ${bundle.target}
