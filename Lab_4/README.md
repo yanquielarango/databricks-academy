@@ -194,3 +194,4 @@ Bundle deploys to two targets — `dev` (Free Edition, serverless, PAT) and `pro
 
 Both targets use a Personal Access Token rather than a Service Principal. Not the ideal setup — Free Edition doesn't support the account-level infrastructure Service Principals need, and I don't have admin rights on the SoftServe workspace to set one up there either. In a real production environment this is where I'd push for Service Principals with proper federation instead.
 
+
