@@ -19,6 +19,7 @@ dev = [
     "databricks-dlt",
     "databricks-connect>=15.4,<15.5",
     "ipykernel",
+    "nbformat>=5.11.0",
 ]
 
 
