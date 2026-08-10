@@ -18,7 +18,7 @@ jobs:
         uses: databricks/setup-cli@main
 
       - name: Deploy bundle to prod
-        run: databricks bundle deploy -t prod
+        run: databricks bundle deploy -t prod --var="cluster_id=${{ vars.PROD_CLUSTER_ID }}"
         env:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_PROD }}
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_PROD }}
