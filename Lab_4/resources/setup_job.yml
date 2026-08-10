@@ -9,7 +9,7 @@ resources:
         - task_key: create_objects
 
           notebook_task:
-            notebook_path: ../notebooks/setup/create_objects.ipynb
+            notebook_path: ../notebooks/setup/create_schema_and_tables.ipynb
             base_parameters:
               environment: ${bundle.target}
               cluster_id: ${var.cluster_id}
