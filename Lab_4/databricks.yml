@@ -54,12 +54,20 @@ targets:
             - task_key: create_objects
               existing_cluster_id: ${var.cluster_id}
         orders_pipeline_job:
+          schedule:
+            quartz_cron_expression: "0 0/15 * * * ?"
+            timezone_id: "Europe/Warsaw"
+            pause_status: PAUSED
           tasks:
             - task_key: ingest_orders_kafka
               existing_cluster_id: ${var.cluster_id}
             - task_key: silver_orders
               existing_cluster_id: ${var.cluster_id}
         menu_pipeline_job:
+          schedule:
+            quartz_cron_expression: "0 0 6 * * ?"
+            timezone_id: "Europe/Warsaw"
+            pause_status: PAUSED
           tasks:
             - task_key: bronze_menu
               existing_cluster_id: ${var.cluster_id}
