@@ -18,6 +18,7 @@ variables:
   cluster_id:
     description: Existing cluster id for production
     default: ""
+
 targets:
 
   dev:
@@ -52,13 +53,17 @@ targets:
           tasks:
             - task_key: create_objects
               existing_cluster_id: ${var.cluster_id}
-        bronze_orders_job:
+        orders_pipeline_job:
           tasks:
             - task_key: ingest_orders_kafka
               existing_cluster_id: ${var.cluster_id}
-        bronze_menu_job:
+            - task_key: silver_orders
+              existing_cluster_id: ${var.cluster_id}
+        menu_pipeline_job:
           tasks:
-            - task_key: ingest_menu
+            - task_key: bronze_menu
+              existing_cluster_id: ${var.cluster_id}
+            - task_key: silver_menu
               existing_cluster_id: ${var.cluster_id}
 
     permissions:

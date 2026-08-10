@@ -1,0 +1,20 @@
+resources:
+  jobs:
+    menu_pipeline_job:
+
+      name: ${bundle.name}-menu-pipeline
+
+      tasks:
+        - task_key: bronze_menu
+          notebook_task:
+            notebook_path: ../notebooks/bronze/bronze_menu.ipynb
+            base_parameters:
+              environment: ${bundle.target}
+
+        - task_key: silver_menu
+          depends_on:
+            - task_key: bronze_menu
+          notebook_task:
+            notebook_path: ../notebooks/silver/silver_menu_items.ipynb
+            base_parameters:
+              environment: ${bundle.target}

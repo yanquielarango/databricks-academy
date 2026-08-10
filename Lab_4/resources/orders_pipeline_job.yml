@@ -1,0 +1,21 @@
+resources:
+  jobs:
+    orders_pipeline_job:
+
+      name: ${bundle.name}-orders-pipeline
+
+      tasks:
+        - task_key: ingest_orders_kafka
+          notebook_task:
+            notebook_path: ../notebooks/bronze/bronze_ingestion_orders_kafka.ipynb
+            base_parameters:
+              environment: ${bundle.target}
+              trigger_type: availableNow
+
+        - task_key: silver_orders
+          depends_on:
+            - task_key: ingest_orders_kafka
+          notebook_task:
+            notebook_path: ../notebooks/silver/silver_orders.ipynb
+            base_parameters:
+              environment: ${bundle.target}
