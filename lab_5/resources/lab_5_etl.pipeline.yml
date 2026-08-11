@@ -7,11 +7,11 @@ resources:
       catalog: ${var.catalog}
       schema: ${var.schema}
       serverless: true
-      root_path: "../src/lab_5_etl"
+      root_path: "../src"
 
       libraries:
         - glob:
-            include: ../src/lab_5_etl/transformations/**
+            include: ../src/transformations/**
 
       environment:
         dependencies:
