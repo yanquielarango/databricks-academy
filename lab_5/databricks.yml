@@ -8,27 +8,49 @@ include:
 variables:
   catalog:
     description: The catalog to use
-  schema:
-    description: The schema to use
 
 targets:
+
   dev:
-    mode: development
     default: true
+
     workspace:
       host: https://dbc-c04a5ad1-7844.cloud.databricks.com
+
+    presets:
+      name_prefix: ''
+      trigger_pause_status: "PAUSED"
+      source_linked_deployment: false
+      tags:
+        Environment: ${bundle.target}
+        Project: ${bundle.name}
+        dev: ${workspace.current_user.userName}
+
     variables:
       catalog: dbr_dev
-      schema: ${workspace.current_user.short_name}
+
+    resources:
+      volumes:
+        landing_volume:
+          volume_type: MANAGED
 
   prod:
     mode: production
+
     workspace:
       host: https://adb-7405604503619901.1.azuredatabricks.net
+
       root_path: /Workspace/Users/yanquiel@softserve.academy/.bundle/${bundle.name}/${bundle.target}
+
     variables:
       catalog: dbr_dev
-      schema: prod
+
+    resources:
+      volumes:
+        landing_volume:
+          volume_type: EXTERNAL
+          storage_location: abfss://yanquiel@dlspl21databricks.dfs.core.windows.net/landing
+
     permissions:
       - user_name: yanquiel@softserve.academy
         level: CAN_MANAGE

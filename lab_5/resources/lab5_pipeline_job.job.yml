@@ -1,13 +1,9 @@
-
-
 resources:
   jobs:
-    sample_job:
+    lab5_pipeline_job:
       name: lab5_pipeline_job
 
-
       trigger:
-        # Run this job every day, exactly one day from the last run; see https://docs.databricks.com/api/workspace/jobs/create#trigger
         periodic:
           interval: 1
           unit: DAYS
@@ -16,12 +12,6 @@ resources:
       email_notifications:
         on_failure:
           - yanquiel@yagdata.com
-
-      parameters:
-        - name: catalog
-          default: ${var.catalog}
-        - name: schema
-          default: ${var.schema}
 
       tasks:
         - task_key: refresh_pipeline
@@ -32,4 +22,3 @@ resources:
         - environment_key: default
           spec:
             environment_version: "4"
-
