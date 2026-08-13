@@ -4,8 +4,10 @@ import pyspark.sql.functions as F
 BOOTSTRAP_SERVERS = "pkc-56d1g.eastus.azure.confluent.cloud:9092"
 TOPIC_NAME = "orders_event"
 
+BRONZE_SCHEMA = spark.conf.get("bronze_schema")  # noqa: F821
+
 @dp.table(
-    name="orders_bronze",
+    name=f"{BRONZE_SCHEMA}.orders_bronze",
     comment="Orders raw data from Confluent Kafka",
     table_properties={
         "quality": "bronze",

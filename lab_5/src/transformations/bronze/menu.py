@@ -1,8 +1,17 @@
 from pyspark import pipelines as dp
 import pyspark.sql.functions as F
-from pyspark.sql.types import StructType, StructField, IntegerType, StringType, DoubleType
+from pyspark.sql.types import (
+    StructType,
+    StructField,
+    IntegerType,
+    StringType,
+    DoubleType,
+)
 
-SOURCE_PATH = "/Volumes/dbr_dev/yanquiel_bronze/landing/menu/"
+CATALOG = spark.conf.get("catalog")  # noqa: F821
+BRONZE_SCHEMA = spark.conf.get("bronze_schema")  # noqa: F821
+
+SOURCE_PATH = f"/Volumes/{CATALOG}/{BRONZE_SCHEMA}/landing/menu/"
 
 MENU_SCHEMA = StructType([
     StructField("menu_item_id", IntegerType(), True),
@@ -12,8 +21,9 @@ MENU_SCHEMA = StructType([
     StructField("_corrupt_record", StringType(), True),
 ])
 
-@dp.materialized_view(
-    name="menu_bronze",
+
+@dp.table(
+    name=f"{BRONZE_SCHEMA}.menu_bronze",
     comment="Menu raw data processing",
     table_properties={
         "quality": "bronze",
@@ -26,8 +36,9 @@ MENU_SCHEMA = StructType([
 )
 def menu_bronze():
     df = (
-        spark.read  # noqa: F821
-        .format("csv")
+        spark.readStream  # noqa: F821
+        .format("cloudFiles")
+        .option("cloudFiles.format", "csv")
         .option("header", "true")
         .schema(MENU_SCHEMA)
         .option("mode", "PERMISSIVE")
@@ -37,5 +48,5 @@ def menu_bronze():
 
     return (
         df.withColumn("file_name", F.col("_metadata.file_path"))
-          .withColumn("ingest_datetime", F.current_timestamp())
+        .withColumn("ingest_datetime", F.current_timestamp())
     )
