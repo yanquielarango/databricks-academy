@@ -1,0 +1,9 @@
+resources:
+  volumes:
+    landing_volume:
+      catalog_name: ${var.catalog}
+      schema_name: ${resources.schemas.bronze_schema.name}
+      name: landing
+      comment: |
+        # Landing volume
+        Created by **${workspace.current_user.displayName}** via Databricks Asset Bundles.

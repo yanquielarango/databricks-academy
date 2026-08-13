@@ -1,0 +1,15 @@
+resources:
+  schemas:
+    bronze_schema:
+      catalog_name: ${var.catalog}
+      name: yanquiel_bronze
+      comment: |
+        # Bronze schema
+        Created by **${workspace.current_user.displayName}** via Databricks Asset Bundles.
+
+    silver_schema:
+      catalog_name: ${var.catalog}
+      name: yanquiel_silver
+      comment: |
+        # Silver schema
+        Created by **${workspace.current_user.displayName}** via Databricks Asset Bundles.
