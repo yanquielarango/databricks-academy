@@ -12,7 +12,7 @@ GOLD_SCHEMA = spark.conf.get("gold_schema") # noqa: F821
     table_properties={"layer": "gold"},
 )
 def fact_orders():
-    orders = spark.read.table(f"{CATALOG}.{SILVER_SCHEMA}.orders_silver") # noqa: F821
+    orders = dp.read(f"{SILVER_SCHEMA}.orders_silver")
     menu = dp.read(f"{GOLD_SCHEMA}.dim_menu_item")
     dates = dp.read(f"{GOLD_SCHEMA}.dim_date")
 
