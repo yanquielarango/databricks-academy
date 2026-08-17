@@ -50,6 +50,11 @@ targets:
 
       root_path: /Workspace/Users/yanquiel@softserve.academy/.bundle/${bundle.name}/${bundle.target}
 
+    presets:
+      tags:
+        Environment: ${bundle.target}
+        Project: ${bundle.name}
+
     variables:
       catalog: dbr_dev
       warehouse_id: 3ed106620db591d9
@@ -69,6 +74,7 @@ targets:
                 - USE_SCHEMA
                 - SELECT
                 - MODIFY
+
             - principal: lbiel@softserve.academy
               privileges:
                 - USE_SCHEMA
