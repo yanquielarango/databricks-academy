@@ -12,10 +12,16 @@ on:
       - "lab6-v*"
 
   workflow_dispatch:
+    inputs:
+      run_prod_automation:
+        description: "Run pipeline + governance in PROD (manual approval)"
+        type: boolean
+        default: false
 
 jobs:
   validate:
     name: Validate DABs
+    if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
 
     defaults:
@@ -113,16 +119,10 @@ jobs:
 
 
   run-prod-automation:
-    name: Run Pipeline + Governance (Prod) — requires approval
-    needs: deploy-prod
+    name: Run Pipeline + Governance (Prod) — manual only
+   
+    if: github.event_name == 'workflow_dispatch' && inputs.run_prod_automation == true
     runs-on: ubuntu-latest
-
-    # El código YA quedó desplegado en 'deploy-prod' (sin aprobación).
-    # Este job es el único que necesita luz verde humana, porque es
-    # el que efectivamente TOCA los datos y la gobernanza en prod.
-    # Se configura en GitHub: Settings > Environments > production-approval
-    # con "Required reviewers" activado.
-    environment: production-approval
 
     defaults:
       run:
