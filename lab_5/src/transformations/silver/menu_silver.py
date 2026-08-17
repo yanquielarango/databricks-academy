@@ -12,7 +12,7 @@ SILVER_SCHEMA = spark.conf.get("silver_schema")  # noqa: F821
 @dp.expect_or_drop("valid_menu_item_id", "menu_item_id IS NOT NULL")
 def menu_silver_clean():
     return (
-        dp.read("menu_bronze")
+        dp.read_stream("menu_bronze")   
         .select(
             "menu_item_id",
             "item_name",
