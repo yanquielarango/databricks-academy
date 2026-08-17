@@ -8,12 +8,12 @@ GOLD_SCHEMA = spark.conf.get("gold_schema") # noqa: F821
 
 @dp.materialized_view(
     name=f"{CATALOG}.{GOLD_SCHEMA}.dim_menu_item",
-    comment="Dimensión de menú — solo versión vigente de cada plato",
+    comment="Menu dimension only latest version of each dish",
     table_properties={"layer": "gold"},
 )
 def dim_menu_item():
     return (
-        spark.read.table(f"{CATALOG}.{SILVER_SCHEMA}.menu_silver") # noqa: F821
+        dp.read(f"{SILVER_SCHEMA}.menu_silver")
         .filter(F.col("__END_AT").isNull())
         .select("menu_item_id", "item_name", "menu_category", "price")
     )
