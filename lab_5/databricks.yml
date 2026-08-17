@@ -12,6 +12,9 @@ variables:
   warehouse_id:
     description: The SQL Warehouse ID to use
 
+  owner_email:
+    description: Email of the user to grant permissions and alert notifications to
+
 targets:
 
   dev:
@@ -32,6 +35,7 @@ targets:
     variables:
       catalog: dbr_dev
       warehouse_id: 1a8ff5cbf85f90de
+      owner_email: yanquiel.arango@gmail.com
 
     resources:
       volumes:
@@ -49,12 +53,26 @@ targets:
     variables:
       catalog: dbr_dev
       warehouse_id: 3ed106620db591d9
+      owner_email: yanquiel@softserve.academy
 
     resources:
       volumes:
         landing_volume:
           volume_type: EXTERNAL
           storage_location: abfss://yanquiel@dlspl21databricks.dfs.core.windows.net/landing
+
+      schemas:
+        gold_schema:
+          grants:
+            - principal: ${var.owner_email}
+              privileges:
+                - USE_SCHEMA
+                - SELECT
+                - MODIFY
+            - principal: lbiel@softserve.academy
+              privileges:
+                - USE_SCHEMA
+                - SELECT
 
     permissions:
       - user_name: yanquiel@softserve.academy

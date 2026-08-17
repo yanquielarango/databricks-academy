@@ -21,7 +21,7 @@ resources:
         notification:
           notify_on_ok: false
           subscriptions:
-            - user_email: "yanquiel@yagdata.com"
+            - user_email: "yanquiel@softserve.academy"
 
       schedule:
         quartz_cron_schedule: "0 0 8 * * ?"
