@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION ${catalog}.yanquiel_gold.filter_orders(item_id INT)
+CREATE OR REPLACE FUNCTION dbr_dev.yanquiel_gold.filter_orders(item_id INT)
 RETURNS BOOLEAN
 RETURN
   CASE

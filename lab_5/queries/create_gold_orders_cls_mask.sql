@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION ${catalog}.yanquiel_gold.mask_discount_code(value STRING)
+CREATE OR REPLACE FUNCTION dbr_dev.yanquiel_gold.mask_discount_code(value STRING)
 RETURNS STRING
 RETURN
   CASE
