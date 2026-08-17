@@ -33,8 +33,10 @@ def main() -> None:
     while True:
         run = client.jobs.get_run(run_id)
 
-        lifecycle_state = run.state.life_cycle_state
-        result_state = run.state.result_state
+      
+        lifecycle_state = run.state.life_cycle_state.value
+       
+        result_state = run.state.result_state.value if run.state.result_state else None
 
         print(
             f"Run ID: {run_id} | "
