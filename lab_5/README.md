@@ -113,12 +113,11 @@ Same idea for orders:
 def orders_silver():
     ...
 ```
-
-Big behavior difference from Lab 4 worth calling out. A `CHECK` constraint in Delta rejects the entire write if even one row violates it. `expect_or_drop` just quietly drops the bad rows and keeps the rest. Neither is better on its own it depends on whether you want a hard stop or a tolerant pipeline that just filters out garbage.
+Big behavior difference from Lab 4 worth calling out. A `CHECK` constraint in Delta rejects the entire write if even one row violates it. `expect_or_drop` just quietly drops the bad rows and keeps the rest. Neither is better on its own, it depends on whether you want a hard stop or a tolerant pipeline that just filters out garbage.
 
 ## SCD Type 2
 
-This is where the difference is biggest. In Lab 4 the SCD2 logic was a two step MERGE close the current row then insert a new one  roughly 40 lines of code. In Lakeflow it is:
+This is where the difference is biggest. In Lab 4 the SCD2 logic was a two step MERGE, close the current row then insert a new one, roughly 40 lines of code. In Lakeflow it is:
 
 ```python
 dp.create_streaming_table(
@@ -135,7 +134,7 @@ dp.create_auto_cdc_flow(
 )
 ```
 
-That is the whole thing. No manual MERGE and no manually managing `is_current` or `end_date` Lakeflow handles all of it internally.
+That is the whole thing. No manual MERGE and no manually managing `is_current` or `end_date`, Lakeflow handles all of it internally.
 
 ## Lineage
 

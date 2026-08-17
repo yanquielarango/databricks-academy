@@ -1,0 +1,6 @@
+resources:
+  dashboards:
+    orders_menu_analytics:
+      display_name: "Orders & Menu Analytics"
+      warehouse_id: 1a8ff5cbf85f90de
+      file_path: ../src/dashboard/orders_menu_analytics.lvdash.json

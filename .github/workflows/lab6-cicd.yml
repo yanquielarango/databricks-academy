@@ -1,0 +1,155 @@
+name: Lab 6 CI/CD
+
+on:
+  pull_request:
+    branches:
+      - main
+
+  push:
+    branches:
+      - feature/lab-6-gold
+    tags:
+      - "lab6-v*"
+
+  workflow_dispatch:
+    inputs:
+      run_prod_automation:
+        description: "Run pipeline + governance in PROD (manual approval)"
+        type: boolean
+        default: false
+
+jobs:
+  validate:
+    name: Validate DABs
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: lab_5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Databricks CLI
+        uses: databricks/setup-cli@main
+
+      - name: Validate bundle
+        run: databricks bundle validate -t dev
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_DEV }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_DEV }}
+
+
+  deploy-dev:
+    name: Deploy to Dev
+    needs: validate
+    if: github.event_name == 'push' && github.ref == 'refs/heads/feature/lab-6-gold'
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: lab_5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Databricks CLI
+        uses: databricks/setup-cli@main
+
+      - name: Deploy bundle to Dev
+        run: databricks bundle deploy -t dev
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_DEV }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_DEV }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Databricks SDK
+        run: pip install databricks-sdk
+
+      - name: Trigger pipeline
+        run: python scripts/trigger_pipeline.py
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_DEV }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_DEV }}
+          DATABRICKS_PIPELINE_ID: ${{ vars.LAB6_ETL_PIPELINE_ID_DEV }}
+
+      - name: Run governance job (RLS/CLS)
+        run: python scripts/databricks_automation.py
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_DEV }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_DEV }}
+          DATABRICKS_JOB_ID: ${{ vars.GOLD_GOVERNANCE_JOB_ID_DEV }}
+
+
+  deploy-prod:
+    name: Deploy to Prod
+    needs: validate
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/lab6-v')
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: lab_5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Databricks CLI
+        uses: databricks/setup-cli@main
+
+      - name: Validate Prod bundle
+        run: databricks bundle validate -t prod
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_PROD }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_PROD }}
+
+      - name: Deploy bundle to Prod
+        run: databricks bundle deploy -t prod
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_PROD }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_PROD }}
+
+
+  run-prod-automation:
+    name: Run Pipeline + Governance (Prod) — manual only
+   
+    if: github.event_name == 'workflow_dispatch' && inputs.run_prod_automation == true
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: lab_5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Databricks SDK
+        run: pip install databricks-sdk
+
+      - name: Trigger pipeline
+        run: python scripts/trigger_pipeline.py
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_PROD }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_PROD }}
+          DATABRICKS_PIPELINE_ID: ${{ vars.LAB6_ETL_PIPELINE_ID_PROD }}
+
+      - name: Run governance job (RLS/CLS)
+        run: python scripts/databricks_automation.py
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_PROD }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_PROD }}
+          DATABRICKS_JOB_ID: ${{ vars.GOLD_GOVERNANCE_JOB_ID_PROD }}
