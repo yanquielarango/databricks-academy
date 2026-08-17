@@ -151,7 +151,7 @@ Every node showed green after a run: `orders_bronze`, `orders_silver`, `menu_bro
 
 Lakeflow has a Full Refresh option from the UI or with `databricks pipelines run --full-refresh`. I ran a full refresh specifically on `menu_silver` to see how it behaves with the SCD2 history since that felt like the riskiest table to reload.
 
-In Lab 4 reloading safely meant deleting the target table and the streaming checkpoint by hand — exactly what caused the `OffsetOutOfRangeException` incident once the checkpoint pointed to offsets Kafka had already expired. Full refresh in Lakeflow is a single controlled action instead of a manual multi step process which removes a lot of the room for that kind of mistake.
+In Lab 4 reloading safely meant deleting the target table and the streaming checkpoint by hand exactly what caused the `OffsetOutOfRangeException` incident once the checkpoint pointed to offsets Kafka had already expired. Full refresh in Lakeflow is a single controlled action instead of a manual multi step process which removes a lot of the room for that kind of mistake.
 
 ## Declarative vs classic, side by side
 
