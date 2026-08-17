@@ -78,7 +78,7 @@ jobs:
         env:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_DEV }}
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_DEV }}
-          DATABRICKS_PIPELINE_ID: ${{ vars.LAB5_ETL_PIPELINE_ID_DEV }}
+          DATABRICKS_PIPELINE_ID: ${{ vars.LAB6_ETL_PIPELINE_ID_DEV }}
 
       - name: Run governance job (RLS/CLS)
         run: python scripts/databricks_automation.py
@@ -145,7 +145,7 @@ jobs:
         env:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_PROD }}
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_PROD }}
-          DATABRICKS_PIPELINE_ID: ${{ vars.LAB5_ETL_PIPELINE_ID_PROD }}
+          DATABRICKS_PIPELINE_ID: ${{ vars.LAB6_ETL_PIPELINE_ID_PROD }}
 
       - name: Run governance job (RLS/CLS)
         run: python scripts/databricks_automation.py
