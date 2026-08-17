@@ -9,7 +9,7 @@ end_date = spark.conf.get("end_date") # noqa: F821
 
 @dp.materialized_view(
     name=f"{CATALOG}.{GOLD_SCHEMA}.dim_date",
-    comment="Dimensión de calendario para el Gold layer",
+    comment="Date dimension for the Gold layer",
     table_properties={
         "layer": "gold",
         "delta.autoOptimize.optimizeWrite": "true",
