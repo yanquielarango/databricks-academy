@@ -13,3 +13,10 @@ resources:
       comment: |
         # Silver schema
         Created by **${workspace.current_user.displayName}** via Databricks Asset Bundles.
+
+    gold_schema:
+      catalog_name: ${var.catalog}
+      name: yanquiel_gold
+      comment: |
+        # Gold schema
+        Created by **${workspace.current_user.displayName}** via Databricks Asset Bundles.
