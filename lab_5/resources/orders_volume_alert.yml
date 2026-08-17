@@ -1,0 +1,29 @@
+resources:
+  alerts:
+    orders_volume_alert:
+      display_name: "Orders volume drop alert"
+      warehouse_id: ${var.warehouse_id}
+
+      query_text: |
+        SELECT COUNT(*) AS row_count
+        FROM ${var.catalog}.${resources.schemas.silver_schema.name}.orders_silver
+        WHERE event_timestamp >= current_timestamp() - INTERVAL 1 DAY
+
+      evaluation:
+        comparison_operator: "LESS_THAN"
+        source:
+          name: "row_count"
+          display: "row_count"
+          aggregation: "MAX"
+        threshold:
+          value:
+            double_value: 1
+        notification:
+          notify_on_ok: false
+          subscriptions:
+            - user_email: "yanquiel@yagdata.com"
+
+      schedule:
+        quartz_cron_schedule: "0 0 8 * * ?"
+        timezone_id: "Europe/Warsaw"
+        pause_status: "UNPAUSED"
