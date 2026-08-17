@@ -13,15 +13,11 @@ GOLD_SCHEMA = spark.conf.get("gold_schema") # noqa: F821
 )
 def fact_orders():
     orders = dp.read(f"{SILVER_SCHEMA}.orders_silver")
-    menu = dp.read(f"{GOLD_SCHEMA}.dim_menu_item")
-    dates = dp.read(f"{GOLD_SCHEMA}.dim_date")
+   
 
     return (
         orders
-        .withColumn("order_date", F.to_date("event_timestamp"))
-        .withColumn("date_key", F.date_format(F.col("order_date"), "yyyyMMdd").cast("int"))
-        .join(menu, orders.item_id == menu.menu_item_id, "left")
-        .join(dates, "date_key", "left")
+        .withColumn("date_key",F.date_format(F.to_date("event_timestamp"),"yyyyMMdd").cast("int"))
         .withColumn("quantity", F.lit(1))
         .select(
             "order_id",

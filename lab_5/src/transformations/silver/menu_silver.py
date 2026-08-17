@@ -6,7 +6,7 @@ SILVER_SCHEMA = spark.conf.get("silver_schema")  # noqa: F821
 
 @dp.view(
     name="menu_silver_clean",
-    comment="Cleaned menu events, ready for SCD2 processing"
+    comment="Cleaned menu events ready for SCD2 processing"
 )
 @dp.expect_or_drop("valid_price", "price > 0")
 @dp.expect_or_drop("valid_menu_item_id", "menu_item_id IS NOT NULL")

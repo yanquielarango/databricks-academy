@@ -20,3 +20,15 @@ resources:
       comment: |
         # Gold schema
         Created by **${workspace.current_user.displayName}** via Databricks Asset Bundles.
+
+      grants:
+        - principal: yanquiel@softserve.academy
+          privileges:
+            - USE_SCHEMA
+            - SELECT
+            - MODIFY
+
+        - principal: lbiel@softserve.academy
+          privileges:
+            - USE_SCHEMA
+            - SELECT

@@ -9,6 +9,9 @@ variables:
   catalog:
     description: The catalog to use
 
+  warehouse_id:
+    description: The SQL Warehouse ID to use
+
 targets:
 
   dev:
@@ -28,6 +31,7 @@ targets:
 
     variables:
       catalog: dbr_dev
+      warehouse_id: 1a8ff5cbf85f90de
 
     resources:
       volumes:
@@ -44,6 +48,7 @@ targets:
 
     variables:
       catalog: dbr_dev
+      warehouse_id: 3ed106620db591d9
 
     resources:
       volumes:
