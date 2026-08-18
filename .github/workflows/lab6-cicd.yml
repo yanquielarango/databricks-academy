@@ -112,7 +112,7 @@ jobs:
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_PROD }}
 
       - name: Deploy bundle to Prod
-        run: databricks bundle deploy -t prod
+        run: databricks bundle deploy -t prod --force
         env:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_PROD }}
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_PROD }}
