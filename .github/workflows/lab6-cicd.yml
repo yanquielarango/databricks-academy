@@ -106,7 +106,7 @@ jobs:
         uses: databricks/setup-cli@main
 
       - name: Validate Prod bundle
-        run: databricks bundle validate -t prod
+        run: databricks bundle validate -t prod --force
         env:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_PROD }}
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_PROD }}
