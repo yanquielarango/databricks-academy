@@ -1,0 +1,64 @@
+- name: menu_item_id_not_null
+  criticality: error
+  check:
+    function: is_not_null
+    arguments:
+      column: menu_item_id
+  user_metadata:
+    dimension: completeness
+
+- name: item_name_not_null
+  criticality: error
+  check:
+    function: is_not_null
+    arguments:
+      column: item_name
+  user_metadata:
+    dimension: completeness
+
+- name: menu_category_not_null
+  criticality: error
+  check:
+    function: is_not_null
+    arguments:
+      column: menu_category
+  user_metadata:
+    dimension: completeness
+
+- name: price_not_null
+  criticality: error
+  check:
+    function: is_not_null
+    arguments:
+      column: price
+  user_metadata:
+    dimension: completeness
+
+- name: price_positive
+  criticality: error
+  check:
+    function: sql_expression
+    arguments:
+      expression: "price > 0"
+  user_metadata:
+    dimension: validity
+
+- name: historical_version_unique
+  criticality: error
+  check:
+    function: is_unique
+    arguments:
+      columns:
+        - menu_item_id
+        - __START_AT
+  user_metadata:
+    dimension: uniqueness
+
+- name: ingest_datetime_not_null
+  criticality: error
+  check:
+    function: is_not_null
+    arguments:
+      column: ingest_datetime
+  user_metadata:
+    dimension: timeliness

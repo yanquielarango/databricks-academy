@@ -26,4 +26,4 @@ resources:
       schedule:
         quartz_cron_schedule: "0 0 8 * * ?"
         timezone_id: "Europe/Warsaw"
-        pause_status: "UNPAUSED"
+        pause_status: "PAUSED"

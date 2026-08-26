@@ -1,27 +1,20 @@
 from pyspark import pipelines as dp
-import pyspark.sql.functions as F
+
+from transformation_functions.menu import transform_menu
 
 SILVER_SCHEMA = spark.conf.get("silver_schema")  # noqa: F821
 
 
 @dp.view(
     name="menu_silver_clean",
-    comment="Cleaned menu events ready for SCD2 processing"
+    comment="Cleaned menu events ready for SCD2 processing",
 )
 @dp.expect_or_drop("valid_price", "price > 0")
 @dp.expect_or_drop("valid_menu_item_id", "menu_item_id IS NOT NULL")
 def menu_silver_clean():
-    return (
-        dp.read_stream("menu_bronze")   
-        .select(
-            "menu_item_id",
-            "item_name",
-            F.col("category").alias("menu_category"),
-            "price",
-            "file_name",
-            "ingest_datetime",
-        )
-    )
+    df = dp.read_stream("menu_bronze")
+
+    return transform_menu(df)
 
 
 dp.create_streaming_table(

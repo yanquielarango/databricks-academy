@@ -13,14 +13,75 @@ on:
 
   workflow_dispatch:
     inputs:
-      run_prod_automation:
-        description: "Run pipeline + governance in PROD (manual approval)"
+      environment:
+        description: "Environment to run"
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+
+      run_pipeline_automation:
+        description: "Run pipeline + DQ + reconciliation + governance"
+        required: true
         type: boolean
         default: false
 
+
 jobs:
+
+  # ============================================================
+  # UNIT TESTS
+  # ============================================================
+
+  unit-tests:
+    name: Unit Tests
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: lab_5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install project dependencies
+        run: uv sync
+
+      - name: Configure Databricks profile
+        run: |
+          mkdir -p ~/.databricks
+
+          cat > ~/.databrickscfg <<EOF
+          [default]
+          host = $DATABRICKS_HOST
+          token = $DATABRICKS_TOKEN
+          EOF
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_DEV }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_DEV }}
+
+      - name: Run unit tests
+        run: uv run pytest -m unit_test -v
+
+
+  # ============================================================
+  # VALIDATE DEV BUNDLE
+  # ============================================================
+
   validate:
     name: Validate DABs
+    needs: unit-tests
     if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
 
@@ -42,10 +103,20 @@ jobs:
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_DEV }}
 
 
+  # ============================================================
+  # DEPLOY DEV
+  # AUTOMATIC DEPLOY ONLY
+  # NOTHING IS EXECUTED
+  # ============================================================
+
   deploy-dev:
     name: Deploy to Dev
     needs: validate
-    if: github.event_name == 'push' && github.ref == 'refs/heads/feature/lab-6-gold'
+
+    if: >
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/feature/lab-6-gold'
+
     runs-on: ubuntu-latest
 
     defaults:
@@ -65,33 +136,21 @@ jobs:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_DEV }}
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_DEV }}
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
 
-      - name: Install Databricks SDK
-        run: pip install databricks-sdk
-
-      - name: Trigger pipeline
-        run: python scripts/trigger_pipeline.py
-        env:
-          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_DEV }}
-          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_DEV }}
-          DATABRICKS_PIPELINE_ID: ${{ vars.LAB6_ETL_PIPELINE_ID_DEV }}
-
-      - name: Run governance job (RLS/CLS)
-        run: python scripts/databricks_automation.py
-        env:
-          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_DEV }}
-          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_DEV }}
-          DATABRICKS_JOB_ID: ${{ vars.GOLD_GOVERNANCE_JOB_ID_DEV }}
-
+  # ============================================================
+  # DEPLOY PROD
+  # TAG-BASED DEPLOY ONLY
+  # NOTHING IS EXECUTED
+  # ============================================================
 
   deploy-prod:
     name: Deploy to Prod
     needs: validate
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/lab6-v')
+
+    if: >
+      github.event_name == 'push' &&
+      startsWith(github.ref, 'refs/tags/lab6-v')
+
     runs-on: ubuntu-latest
 
     defaults:
@@ -118,10 +177,18 @@ jobs:
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_PROD }}
 
 
-  run-prod-automation:
-    name: Run Pipeline + Governance (Prod) — manual only
-   
-    if: github.event_name == 'workflow_dispatch' && inputs.run_prod_automation == true
+  # ============================================================
+  # MANUAL DEV PIPELINE + DATA QUALITY
+  # ============================================================
+
+  run-dev-automation:
+    name: Run Pipeline + DQ Gates (Dev)
+
+    if: >
+      github.event_name == 'workflow_dispatch' &&
+      inputs.environment == 'dev' &&
+      inputs.run_pipeline_automation == true
+
     runs-on: ubuntu-latest
 
     defaults:
@@ -137,18 +204,94 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install Databricks SDK
-        run: pip install databricks-sdk
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install project dependencies
+        run: uv sync
+
+      - name: Configure Databricks profile
+        run: |
+          mkdir -p ~/.databricks
+
+          cat > ~/.databrickscfg <<EOF
+          [default]
+          host = $DATABRICKS_HOST
+          token = $DATABRICKS_TOKEN
+          EOF
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_DEV }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_DEV }}
 
       - name: Trigger pipeline
-        run: python scripts/trigger_pipeline.py
+        run: uv run python scripts/trigger_pipeline.py
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_DEV }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_DEV }}
+          DATABRICKS_PIPELINE_ID: ${{ vars.LAB6_ETL_PIPELINE_ID_DEV }}
+
+      - name: Run DQX data quality checks
+        run: uv run python scripts/run_dqx.py
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_DEV }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_DEV }}
+
+      - name: Run reconciliation checks
+        run: uv run python scripts/run_reconciliation.py
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_DEV }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_DEV }}
+
+      - name: Run governance job
+        run: uv run python scripts/databricks_automation.py
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_DEV }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_DEV }}
+          DATABRICKS_JOB_ID: ${{ vars.GOLD_GOVERNANCE_JOB_ID_DEV }}
+
+
+  # ============================================================
+  # MANUAL PROD PIPELINE + GOVERNANCE
+  # ============================================================
+
+  run-prod-automation:
+    name: Run Pipeline + Governance (Prod)
+
+    if: >
+      github.event_name == 'workflow_dispatch' &&
+      inputs.environment == 'prod' &&
+      inputs.run_pipeline_automation == true
+
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: lab_5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install project dependencies
+        run: uv sync
+
+      - name: Trigger pipeline
+        run: uv run python scripts/trigger_pipeline.py
         env:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_PROD }}
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_PROD }}
           DATABRICKS_PIPELINE_ID: ${{ vars.LAB6_ETL_PIPELINE_ID_PROD }}
 
-      - name: Run governance job (RLS/CLS)
-        run: python scripts/databricks_automation.py
+      - name: Run governance job
+        run: uv run python scripts/databricks_automation.py
         env:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_PROD }}
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_PROD }}
