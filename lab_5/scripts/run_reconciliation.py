@@ -29,10 +29,7 @@ def main():
     orders_df = spark.table(silver_table)
     fact_orders_df = spark.table(gold_table)
 
-    # ---------------------------------------------------------
-    # 1. Row-count reconciliation
-    # ---------------------------------------------------------
-
+ 
     silver_count = orders_df.count()
     gold_count = fact_orders_df.count()
 
@@ -42,10 +39,7 @@ def main():
 
     row_count_matches = silver_count == gold_count
 
-    # ---------------------------------------------------------
-    # 2. Aggregate reconciliation
-    # ---------------------------------------------------------
-
+  
     gold_quantity = (
         fact_orders_df
         .selectExpr("COALESCE(SUM(quantity), 0) AS total_quantity")
@@ -59,10 +53,7 @@ def main():
 
     quantity_matches = silver_count == gold_quantity
 
-    # ---------------------------------------------------------
-    # CI gate
-    # ---------------------------------------------------------
-
+ 
     if not row_count_matches:
         print(
             "\nRECONCILIATION FAILED: "

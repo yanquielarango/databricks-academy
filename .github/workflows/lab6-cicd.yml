@@ -30,10 +30,6 @@ on:
 
 jobs:
 
-  # ============================================================
-  # UNIT TESTS
-  # ============================================================
-
   unit-tests:
     name: Unit Tests
     if: github.event_name != 'workflow_dispatch'
@@ -75,10 +71,6 @@ jobs:
         run: uv run pytest -m unit_test -v
 
 
-  # ============================================================
-  # VALIDATE DEV BUNDLE
-  # ============================================================
-
   validate:
     name: Validate DABs
     needs: unit-tests
@@ -102,12 +94,6 @@ jobs:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_DEV }}
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_DEV }}
 
-
-  # ============================================================
-  # DEPLOY DEV
-  # AUTOMATIC DEPLOY ONLY
-  # NOTHING IS EXECUTED
-  # ============================================================
 
   deploy-dev:
     name: Deploy to Dev
@@ -136,12 +122,6 @@ jobs:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_DEV }}
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_DEV }}
 
-
-  # ============================================================
-  # DEPLOY PROD
-  # TAG-BASED DEPLOY ONLY
-  # NOTHING IS EXECUTED
-  # ============================================================
 
   deploy-prod:
     name: Deploy to Prod
@@ -176,10 +156,6 @@ jobs:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_PROD }}
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_PROD }}
 
-
-  # ============================================================
-  # MANUAL DEV PIPELINE + DATA QUALITY
-  # ============================================================
 
   run-dev-automation:
     name: Run Pipeline + DQ Gates (Dev)
@@ -249,10 +225,6 @@ jobs:
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_DEV }}
           DATABRICKS_JOB_ID: ${{ vars.GOLD_GOVERNANCE_JOB_ID_DEV }}
 
-
-  # ============================================================
-  # MANUAL PROD PIPELINE + GOVERNANCE
-  # ============================================================
 
   run-prod-automation:
     name: Run Pipeline + Governance (Prod)

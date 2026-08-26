@@ -1,203 +1,687 @@
-# Lab 5 — Lakeflow Declarative Pipelines vs Classic Spark
+# Data Engineering Pipeline with Lakeflow Declarative Pipelines
 
-Goal for this lab: build the same kind of pipeline as Lab 4 but using Lakeflow Declarative Pipelines (formerly Delta Live Tables) and compare it against the classic PySpark approach.
+This project contains a Bronze → Silver → Gold data pipeline built with Azure Databricks and Unity Catalog.
 
-I reused the same data sources as Lab 4 (the menu CSV and the Confluent Kafka orders topic) so the comparison would be based on real working code from both sides instead of a made up example.
+The pipeline uses Lakeflow Declarative Pipelines for data processing and Databricks Asset Bundles for deployment. GitHub Actions is used for CI/CD.
 
-## Setup
+The data comes from two sources:
 
-Scaffolded with `databricks pipelines init` then reorganized to match my own structure. The project has `src/transformations/bronze` and `src/transformations/silver` plus `src/producer` reused from Lab 4 for generating test events.
+- Order events from Confluent Cloud using Kafka
+- Menu data from CSV files
 
-Two targets same environments as Lab 4. `dev` runs on Free Edition. `prod` runs on Azure through SoftServe. Both use `resources.schemas` and `resources.volumes` as bundle managed resources so schemas and the landing volume get created as part of the deploy itself instead of needing a separate setup job, unlike the `setup_job` approach in Lab 4.
+The project was developed across Labs 5, 6 and 7. Each lab extends the same pipeline instead of creating a separate project.
 
-## Bronze: CSV and streaming sources
+- **Lab 5** implements the Bronze and Silver layers with streaming ingestion and SCD Type 2 processing
+- **Lab 6** adds the Gold layer, AI/BI dashboard, alerting, governance and CI/CD
+- **Lab 7** adds unit testing and data quality testing with pytest, Databricks Connect, DQX, quarantine handling and reconciliation checks
 
-Menu started out as a `@dp.materialized_view` doing a full CSV reread every run. Switched it to a `@dp.table` using Auto Loader (`cloudFiles`) instead so it only picks up new files incrementally rather than reprocessing the whole CSV each time. Same incremental pattern I used for Bronze menu in Lab 4:
+> Labs 5, 6 and 7 are kept inside the same `lab_5/` project. Each lab builds on the previous one. Keeping everything in the same project avoids duplicating pipeline logic and keeps Bronze, Silver and Gold as one continuous data pipeline.
 
-```python
-CATALOG = spark.conf.get("catalog")
-BRONZE_SCHEMA = spark.conf.get("bronze_schema")
-SOURCE_PATH = f"/Volumes/{CATALOG}/{BRONZE_SCHEMA}/landing/menu/"
+---
 
-MENU_SCHEMA = StructType([
-    StructField("menu_item_id", IntegerType(), True),
-    StructField("item_name", StringType(), True),
-    StructField("category", StringType(), True),
-    StructField("price", DoubleType(), True),
-    StructField("_corrupt_record", StringType(), True),
-])
+## Architecture
 
-@dp.table(
-    name=f"{BRONZE_SCHEMA}.menu_bronze",
-    comment="Menu raw data processing",
-    table_properties={
-        "quality": "bronze",
-        "layer": "bronze",
-        "source_format": "csv",
-        "delta.enableChangeDataFeed": "true",
-    },
-)
-def menu_bronze():
-    df = (
-        spark.readStream
-        .format("cloudFiles")
-        .option("cloudFiles.format", "csv")
-        .option("header", "true")
-        .schema(MENU_SCHEMA)
-        .option("mode", "PERMISSIVE")
-        .option("columnNameOfCorruptRecord", "_corrupt_record")
-        .load(SOURCE_PATH)
-    )
-    return (
-        df.withColumn("file_name", F.col("_metadata.file_path"))
-          .withColumn("ingest_datetime", F.current_timestamp())
-    )
+```text
+Kafka (Confluent)
+       |
+       v
+orders_bronze
+       |
+       v
+orders_parsed
+     /     \
+    v       v
+orders_silver   orders_quarantine
+    |
+    v
+fact_orders
+    |
+    v
+AI/BI Dashboard
+
+
+CSV Menu
+   |
+   v
+menu_bronze
+   |
+   v
+menu_silver_clean
+   |
+   v
+menu_silver (SCD2)
+   |
+   v
+dim_menu_item
+   |
+   +----------> fact_orders
+
+dim_date ------> fact_orders
 ```
 
-Orders comes from Kafka so it is a `@dp.table` (a real streaming table) too:
+Bronze and Silver are processed incrementally.
 
-```python
-@dp.table(
-    name="orders_bronze",
-    schema="${var.bronze_schema}",
-    comment="Orders raw data from Confluent Kafka",
-)
-def orders_bronze():
-    api_key = dbutils.secrets.get(scope="confluent-scope", key="api-key")
-    api_secret = dbutils.secrets.get(scope="confluent-scope", key="api-secret")
-    kafka_options = {
-        "kafka.bootstrap.servers": BOOTSTRAP_SERVERS,
-        "subscribe": TOPIC_NAME,
-        "kafka.security.protocol": "SASL_SSL",
-        "kafka.sasl.mechanism": "PLAIN",
-        "kafka.sasl.jaas.config": (
-            "kafkashaded.org.apache.kafka.common.security.plain.PlainLoginModule required "
-            f'username="{api_key}" password="{api_secret}";'
-        ),
-        "startingOffsets": "earliest",
-    }
-    df_raw = spark.readStream.format("kafka").options(**kafka_options).load()
-    return (
-        df_raw
-        .withColumn("raw_json", F.col("value").cast("string"))
-        .withColumn("ingest_datetime", F.current_timestamp())
-        .select("raw_json", "topic", "partition", "offset", "timestamp", "ingest_datetime")
-    )
+Menu data is ingested with Auto Loader. Order events are read from Kafka using Structured Streaming.
+
+---
+
+## Repository structure
+
+```text
+lab_5/
+├── databricks.yml
+├── pyproject.toml
+├── uv.lock
+│
+├── dq/
+│   └── silver/
+│       ├── menu.yml
+│       └── orders.yml
+│
+├── queries/
+│
+├── resources/
+│
+├── scripts/
+│   ├── databricks_automation.py
+│   ├── run_dqx.py
+│   ├── run_reconciliation.py
+│   └── trigger_pipeline.py
+│
+├── src/
+│   ├── dashboard/
+│   ├── producer/
+│   │
+│   ├── transformation_functions/
+│   │   ├── fact_orders.py
+│   │   ├── menu.py
+│   │   └── orders.py
+│   │
+│   └── transformations/
+│       ├── bronze/
+│       ├── silver/
+│       └── gold/
+│
+└── tests/
+    ├── conftest.py
+    └── unit/
+        ├── test_fact_orders.py
+        ├── test_menu.py
+        └── test_orders.py
 ```
 
-The decorator you choose (`materialized_view` vs `table`) still matters for anything downstream reading incrementally. I first wrote `menu_silver_clean` as a `@dp.table` reading `menu_bronze` with `read_stream` back when `menu_bronze` was still a materialized view that got fully recomputed on every run. That failed with `DELTA_SOURCE_TABLE_IGNORE_CHANGES` because streaming reads cannot handle a source that overwrites itself. Once I switched `menu_bronze` to Auto Loader that source became append-only which is why `menu_silver_clean` could in principle go back to being a streaming table too. I kept it as a materialized view for now since it already works but it's worth revisiting.
+---
 
-Also switched from passing the schema as a decorator argument (`schema="${var.bronze_schema}"`) to resolving it inside the function body with `spark.conf.get("bronze_schema")` and building the fully qualified name as an f-string (`f"{BRONZE_SCHEMA}.menu_bronze"`). Both work. This version reads the schema from the pipeline's `configuration` block which needs `bronze_schema` and `silver_schema` defined there.
+## Tech stack
 
-## Expectations
+| Area | Technology |
+|---|---|
+| Data platform | Azure Databricks |
+| Pipelines | Lakeflow Declarative Pipelines |
+| Storage and governance | Delta Lake and Unity Catalog |
+| Streaming | Confluent Cloud Kafka |
+| File ingestion | Auto Loader |
+| Deployment | Databricks Asset Bundles |
+| CI/CD | GitHub Actions |
+| Unit testing | pytest |
+| Spark testing | Databricks Connect |
+| Data quality | Databricks Labs DQX |
+| Python dependencies | uv |
+| Dashboard | Databricks AI/BI |
 
-Instead of `ALTER TABLE ADD CONSTRAINT` like in Lab 4 expectations are declared right on the function:
+---
 
-```python
-@dp.materialized_view(
-    name="menu_silver_clean",
-    schema="${var.silver_schema}",
-    comment="Cleaned menu events, ready for SCD2 processing",
-)
-@dp.expect_or_drop("valid_price", "price > 0")
-@dp.expect_or_drop("valid_menu_item_id", "menu_item_id IS NOT NULL")
-def menu_silver_clean():
-    ...
+# Lab 5
+
+Lab 5 contains the main data ingestion and transformation pipeline. It implements the Bronze and Silver layers.
+
+## Bronze layer
+
+The Bronze layer keeps the source data with only the transformations needed for ingestion.
+
+### Orders
+
+Orders are read from the `orders_event` Kafka topic using Structured Streaming.
+
+The Bronze table stores the raw JSON together with Kafka metadata such as:
+
+- `topic`
+- `partition`
+- `offset`
+- timestamp
+- ingestion timestamp
+
+The combination of `topic`, `partition` and `offset` can be used as the technical identity of a Kafka event.
+
+### Menu
+
+Menu data is loaded from CSV files using Auto Loader.
+
+The schema also contains `_corrupt_record` so malformed CSV rows can be captured instead of silently ignored.
+
+---
+
+## Silver layer
+
+The Silver layer parses and cleans the source data before it is used by Gold.
+
+### Orders
+
+Order events are parsed from JSON and converted to the expected data types.
+
+The Silver table contains fields such as:
+
+```text
+order_id
+item_id
+event_timestamp
+discount_code
+topic
+partition
+offset
+ingest_datetime
 ```
 
-Same idea for orders:
+Lakeflow expectations are used to validate required fields.
+
+### Menu
+
+Menu data is cleaned before being stored in Silver.
+
+The Silver menu table is maintained as SCD Type 2 using Lakeflow Auto CDC.
 
 ```python
-@dp.expect_or_drop("valid_order_id", "order_id IS NOT NULL")
-@dp.expect_or_drop("valid_item_id", "item_id IS NOT NULL")
-def orders_silver():
-    ...
-```
-Big behavior difference from Lab 4 worth calling out. A `CHECK` constraint in Delta rejects the entire write if even one row violates it. `expect_or_drop` just quietly drops the bad rows and keeps the rest. Neither is better on its own, it depends on whether you want a hard stop or a tolerant pipeline that just filters out garbage.
-
-## SCD Type 2
-
-This is where the difference is biggest. In Lab 4 the SCD2 logic was a two step MERGE, close the current row then insert a new one, roughly 40 lines of code. In Lakeflow it is:
-
-```python
-dp.create_streaming_table(
-    name="menu_silver",
-    schema="${var.silver_schema}",
-)
-
 dp.create_auto_cdc_flow(
-    target="menu_silver",
-    source="menu_silver_clean",
-    keys=["menu_item_id"],
-    sequence_by="ingest_datetime",
-    stored_as_scd_type=2,
+    stored_as_scd_type=2
 )
 ```
 
-That is the whole thing. No manual MERGE and no manually managing `is_current` or `end_date`, Lakeflow handles all of it internally.
+Lakeflow maintains the SCD2 columns:
 
-## Lineage
-
-This is fully automatic and needs no code at all. After running the pipeline the UI shows the whole dependency graph on its own:
-
-```
-orders_bronze (streaming table) -> orders_silver (streaming table)
-menu_bronze (materialized view) -> menu_silver_clean (materialized view) -> menu_silver (streaming table)
+```text
+__START_AT
+__END_AT
 ```
 
-Every node showed green after a run: `orders_bronze`, `orders_silver`, `menu_bronze`, `menu_silver_clean` (32 output records, 2 expectations met) and `menu_silver`. In Lab 4 there was no equivalent of this. You had to read through the notebooks yourself to figure out what depended on what.
+This keeps the history when menu information changes.
 
-## Reload safely
+---
 
-Lakeflow has a Full Refresh option from the UI or with `databricks pipelines run --full-refresh`. I ran a full refresh specifically on `menu_silver` to see how it behaves with the SCD2 history since that felt like the riskiest table to reload.
+# Lab 6
 
-In Lab 4 reloading safely meant deleting the target table and the streaming checkpoint by hand exactly what caused the `OffsetOutOfRangeException` incident once the checkpoint pointed to offsets Kafka had already expired. Full refresh in Lakeflow is a single controlled action instead of a manual multi step process which removes a lot of the room for that kind of mistake.
+Lab 6 extends the pipeline with the Gold layer and the components needed for analytics, governance and deployment.
 
-## Declarative vs classic, side by side
+## Gold layer
 
-| | Lab 4 (classic) | Lab 5 (declarative) |
+The Gold layer contains the star schema used for analytics.
+
+| Table | Type | Description |
 |---|---|---|
-| Defining a table | Manual `CREATE TABLE` plus write logic | `@dp.materialized_view` / `@dp.table`, schema inferred |
-| Execution order | You control notebook/cell order yourself | Lakeflow resolves the dependency graph automatically |
-| SCD Type 2 | About 40 lines of manual two step MERGE | 6 lines with `create_auto_cdc_flow` |
-| Data quality | `CHECK` constraint, rejects the whole write | `expect_or_drop`, drops only the bad rows |
-| Streaming checkpoints | Manual, and I hit a real checkpoint bug | Managed automatically by the framework |
-| Lineage | Not visible, had to read the code | Automatic, visible in the UI with zero extra code |
-| Reloading data | Manual delete of table and checkpoint | Full refresh, one controlled action |
-| Environment config | Interactive widgets at runtime | Bundle variables, resolved at deploy time |
+| `dim_date` | Dimension | Calendar dimension |
+| `dim_menu_item` | Dimension | Current menu item snapshot |
+| `fact_orders` | Fact | Orders enriched with menu and date information |
 
-Operational simplicity clearly favors declarative here. Less code, fewer places to introduce a bug, and things like lineage and reload come for free. The trade off is flexibility. In Lab 4 I could write literally any PySpark logic I wanted inside a cell. In Lakeflow you are working inside the shape the framework expects (materialized view vs streaming table, `create_auto_cdc_flow`'s specific parameters) which is great until you need something the framework does not directly support.
+`fact_orders` joins Silver orders with the menu and date dimensions.
 
-On cost, serverless Lakeflow pipelines bill differently from a job running on a fixed cluster. For something that runs briefly and infrequently like this menu/orders pipeline that is probably cheaper. For a workload running nonstop it would need real comparison against a properly sized cluster, which I have not done here.
+A `date_key` is derived from `event_timestamp` and each fact record gets a `quantity` value of `1`.
 
-## A DABs gotcha that cost me some time
+---
 
-Small tip that took me a while to figure out. I spent a good amount of time searching through the docs, trying different configurations and debugging an issue with the schema names generated by Databricks even when you explicitly define the schema you want, for example `<catalog>.<bronze_schema>`.
+## AI/BI dashboard
 
-If you're using `mode: development` Databricks can create a development prefixed schema like `<catalog>.dev_<username>_<bronze_schema>`.
+The Databricks AI/BI dashboard uses `fact_orders` as its main source.
 
-At first I thought there was something wrong with my schema configuration but it turns out it's related to how DABs handles development mode.
+It contains:
 
-If you don't want the `[dev username]` prefix on resources and also want to avoid the development prefixed schema you can remove `mode: development` from the dev target and use:
+- order count
+- revenue
+- units sold
+- average order value
+- revenue trend
+- category breakdown
+- menu item breakdown
+- filters for date, category and menu item
 
-```yaml
-dev:
-  default: true
+The dashboard uses individual data permissions so Unity Catalog security rules are evaluated for each user.
 
-  workspace:
-    host: https://<your-workspace>
+---
 
-  presets:
-    name_prefix: ''
-    pipelines_development: true
-    trigger_pause_status: "PAUSED"
-```
+## Alerting
 
-Then the resources and schemas keep the names you actually defined instead of having the development prefix added.
+A SQL alert checks order activity in `orders_silver`.
 
-The important part is that `name_prefix: ''` by itself doesn't solve the issue if `mode: development` is enabled. This took me a while to figure out so hopefully it saves someone else some debugging time.
+It checks a rolling 24 hour window and sends an email notification if no orders are found.
+
+This helps detect ingestion problems before they affect the Gold layer.
+
+---
+
+## Governance
+
+Row level and column level security are applied to `fact_orders`.
+
+A row filter controls which `item_id` values a user can see.
+
+A column mask protects `discount_code`.
+
+The policies are created and applied by the `gold_governance_job`.
+
+Because `fact_orders` is a materialized view the security rules are applied using `ALTER MATERIALIZED VIEW`.
+
+---
 
 ## CI/CD
 
-Same pattern as Lab 4, reusing the existing GitHub Secrets since they point at the same two workspaces. Three workflows: `deploy-lab5-dev.yml` (push to main, scoped to `lab_5/**`), `validate-lab5-pr.yml` (PRs into main) and `deploy-lab5-prod.yml` (tags matching `lab5-v*`). Dev deploy and PR validation are both confirmed working. Prod deploy is not exercised yet.
+GitHub Actions is used for validation and deployment to Dev and Prod.
+
+Deployment and pipeline execution are kept separate.
+
+A push to the Lab 6 feature branch performs:
+
+```text
+Unit tests
+    |
+    v
+Bundle validation
+    |
+    v
+Deploy to Dev
+    |
+    v
+STOP
+```
+
+The pipeline is not executed automatically after deployment.
+
+The main jobs are:
+
+| Job | Trigger | Behavior |
+|---|---|---|
+| `unit-tests` | PR or push | Runs the Lab 7 pytest tests |
+| `validate` | PR or push | Validates the Databricks Asset Bundle |
+| `deploy-dev` | Push to `feature/lab-6-gold` | Deploys the bundle to Dev |
+| `deploy-prod` | Tag `lab6-v*` | Validates and deploys the bundle to Prod |
+| `run-dev-automation` | Manual | Runs the Dev pipeline, DQX, reconciliation and governance |
+| `run-prod-automation` | Manual | Runs the Prod pipeline and governance |
+
+Production deployment is triggered with a Git tag.
+
+```bash
+git tag lab6-vX.Y.Z
+git push origin lab6-vX.Y.Z
+```
+
+This deploys the bundle to Prod but does not execute the production pipeline.
+
+Pipeline execution is started manually from GitHub Actions.
+
+---
+
+# Lab 7
+
+Lab 7 adds testing and data quality controls to the existing pipeline.
+
+The goal is to test both the transformation code and the data moving through the medallion architecture.
+
+Unit tests check the transformation logic.
+
+Lakeflow expectations handle invalid records during pipeline processing.
+
+DQX checks the data stored in Databricks.
+
+Reconciliation checks compare data between Silver and Gold.
+
+---
+
+## Transformation functions
+
+Transformation logic was moved from the Lakeflow files into importable Python functions.
+
+They are stored in:
+
+```text
+src/transformation_functions/
+├── fact_orders.py
+├── menu.py
+└── orders.py
+```
+
+The Lakeflow pipeline still defines the tables and views but calls these functions for the transformation logic.
+
+For example the orders pipeline calls:
+
+```python
+transform_orders(df)
+```
+
+This makes the transformation logic easier to test without testing the Lakeflow decorators themselves.
+
+---
+
+## Unit tests
+
+Unit tests are written with pytest.
+
+Databricks Connect is used so tests can be started from the local IDE while Spark operations run against Databricks compute.
+
+The tests are located in:
+
+```text
+tests/
+├── conftest.py
+└── unit/
+    ├── test_fact_orders.py
+    ├── test_menu.py
+    └── test_orders.py
+```
+
+The current tests cover the main transformation logic for orders, menu and `fact_orders`.
+
+### Orders
+
+The tests check:
+
+- JSON parsing
+- integer casting
+- timestamp parsing
+- Kafka metadata
+- output schema
+
+### Menu
+
+The tests check:
+
+- column selection
+- renaming `category` to `menu_category`
+- expected output values
+
+### Fact orders
+
+The tests check:
+
+- `date_key` creation
+- `quantity` creation
+- joins with the dimensions
+- left join behavior
+
+The unit tests can be executed with:
+
+```bash
+uv run pytest -m unit_test -v
+```
+
+Current result:
+
+```text
+4 passed
+```
+
+The tests are also integrated into GitHub Actions and run before bundle validation and deployment.
+
+---
+
+## Data quality with DQX
+
+Databricks Labs DQX is used to check the data stored in Databricks.
+
+The DQX rules are defined in YAML files.
+
+```text
+dq/
+└── silver/
+    ├── menu.yml
+    └── orders.yml
+```
+
+The checks cover the main data quality dimensions used in the lab.
+
+| Dimension | Example |
+|---|---|
+| Completeness | IDs and timestamps must not be null |
+| Uniqueness | Kafka events must be unique |
+| Validity | Values must follow the expected rules |
+| Consistency | Order items must exist in the menu dimension |
+| Timeliness | Event and ingestion timestamps must be consistent |
+
+For orders the Kafka metadata is used for event uniqueness:
+
+```text
+topic + partition + offset
+```
+
+`order_id + item_id` is not used because the same item can legitimately appear more than once in the order event data.
+
+For the SCD2 menu data the historical versions are checked using:
+
+```text
+menu_item_id + __START_AT
+```
+
+There is also a check to make sure each menu item has no more than one active version where:
+
+```text
+__END_AT IS NULL
+```
+
+DQX can be executed with:
+
+```bash
+uv run python scripts/run_dqx.py
+```
+
+A successful execution looks like:
+
+```text
+Running DQX checks on: dbr_dev.yanquiel_silver.orders_silver
+
+Total rows:   1050
+Valid rows:   1050
+Invalid rows: 0
+Missing menu references: 0
+
+Running DQX checks on: dbr_dev.yanquiel_silver.menu_silver
+
+Total rows:   32
+Valid rows:   32
+Invalid rows: 0
+Menu items with multiple active versions: 0
+
+DQX PASSED: all data quality checks passed.
+```
+
+If a critical data quality check fails the script returns a non zero exit code.
+
+This allows DQX to be used as a quality gate when the pipeline is executed through GitHub Actions.
+
+---
+
+## Quarantine
+
+Lab 7 also adds a quarantine path for invalid order records.
+
+The orders flow is:
+
+```text
+orders_bronze
+      |
+      v
+orders_parsed
+    /       \
+   v         v
+orders_silver   orders_quarantine
+```
+
+Lakeflow expectations validate the required fields:
+
+```text
+order_id IS NOT NULL
+item_id IS NOT NULL
+event_timestamp IS NOT NULL
+```
+
+Valid records continue to `orders_silver`.
+
+Invalid records are written to:
+
+```text
+orders_quarantine
+```
+
+The quarantine table includes a `dq_reason` column that explains why the record was rejected.
+
+The quarantine flow was tested with an invalid Kafka event:
+
+```json
+{
+  "order_id": null,
+  "item_id": 105,
+  "event_timestamp": "2026-08-26T20:05:00Z"
+}
+```
+
+The record was stored in quarantine with:
+
+```text
+order_id: NULL
+item_id: 105
+dq_reason: missing_order_id
+```
+
+A check against `orders_silver` confirmed that no record with a null `order_id` was written there.
+
+Lakeflow handles the routing of invalid records. DQX is kept separate and checks the resulting data.
+
+---
+
+## Reconciliation tests
+
+Lab 7 also includes reconciliation checks between Silver and Gold.
+
+The current reconciliation compares:
+
+```text
+orders_silver
+```
+
+with:
+
+```text
+fact_orders
+```
+
+The first check compares the number of rows.
+
+```text
+Silver orders count = Gold fact_orders count
+```
+
+The second check compares the Silver row count with:
+
+```text
+SUM(fact_orders.quantity)
+```
+
+Each fact record has:
+
+```text
+quantity = 1
+```
+
+so the values should match.
+
+The reconciliation checks can be executed with:
+
+```bash
+uv run python scripts/run_reconciliation.py
+```
+
+Example result:
+
+```text
+Running reconciliation checks...
+
+Silver: dbr_dev.yanquiel_silver.orders_silver
+Gold:   dbr_dev.yanquiel_gold.fact_orders
+
+Row-count reconciliation
+Silver orders: 1050
+Gold orders:   1050
+
+Aggregate reconciliation
+Silver rows:        1050
+Gold SUM(quantity): 1050
+
+RECONCILIATION PASSED: Silver and Gold are consistent.
+```
+
+The script returns a non zero exit code if reconciliation fails.
+
+---
+
+## Lab 7 in CI/CD
+
+The Lab 7 tests are integrated into the existing GitHub Actions workflow.
+
+Unit tests run before the Databricks Asset Bundle is validated and deployed.
+
+```text
+Push
+  |
+  v
+pytest
+  |
+  v
+Bundle validation
+  |
+  v
+Deploy to Dev
+```
+
+The Lakeflow pipeline itself is not started automatically.
+
+For Dev the pipeline and data quality checks can be started manually from GitHub Actions.
+
+The manual flow is:
+
+```text
+Lakeflow Pipeline
+       |
+       v
+      DQX
+       |
+       v
+Reconciliation
+       |
+       v
+Governance
+```
+
+The pipeline trigger waits until the Lakeflow update finishes before DQX starts.
+
+If the pipeline fails the workflow stops.
+
+If DQX finds a critical data quality problem the workflow stops.
+
+If reconciliation fails the workflow also stops.
+
+This keeps deployment separate from data processing while still allowing the Lab 7 checks to work as gates when the pipeline is executed.
+
+---
+
+## Testing and data quality
+
+The project uses different checks for different problems.
+
+| Tool | Purpose |
+|---|---|
+| pytest | Tests transformation logic |
+| Databricks Connect | Runs Spark tests against Databricks compute |
+| Lakeflow expectations | Validate records during pipeline processing |
+| Quarantine table | Keeps rejected records for inspection |
+| DQX | Checks the quality of stored data |
+| Reconciliation | Checks data between Silver and Gold |
+
+This gives the project checks at both code and data level.
+
+---
 

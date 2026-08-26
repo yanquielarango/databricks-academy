@@ -42,10 +42,7 @@ def main():
         WorkspaceClient(profile="default")
     )
 
-    # =========================================================
-    # ORDERS DQX
-    # =========================================================
-
+ 
     print(f"\nRunning DQX checks on: {orders_table_name}")
 
     orders_df = spark.table(orders_table_name)
@@ -68,10 +65,7 @@ def main():
     print(f"Valid rows:   {orders_valid_count}")
     print(f"Invalid rows: {orders_invalid_count}")
 
-    # =========================================================
-    # ORDERS CONSISTENCY
-    # orders_silver.item_id must exist in dim_menu_item
-    # =========================================================
+   
 
     menu_dimension_df = spark.table(menu_dimension_table_name)
 
@@ -100,9 +94,6 @@ def main():
 
     print(f"Missing menu references: {missing_menu_count}")
 
-    # =========================================================
-    # MENU DQX
-    # =========================================================
 
     print(f"\nRunning DQX checks on: {menu_silver_table_name}")
 
@@ -126,10 +117,7 @@ def main():
     print(f"Valid rows:   {menu_valid_count}")
     print(f"Invalid rows: {menu_invalid_count}")
 
-    # =========================================================
-    # MENU SCD2 CONSISTENCY
-    # Only one active version per menu_item_id
-    # =========================================================
+    
 
     active_duplicates = (
         menu_silver_df
@@ -145,10 +133,6 @@ def main():
         "Menu items with multiple active versions: "
         f"{active_duplicate_count}"
     )
-
-    # =========================================================
-    # CI GATE
-    # =========================================================
 
     if orders_invalid_count > 0:
         print("\nORDERS DQX FAILED: data quality errors found.")
