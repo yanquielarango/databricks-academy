@@ -1,0 +1,57 @@
+- name: order_id_not_null
+  criticality: error
+  check:
+    function: is_not_null
+    arguments:
+      column: order_id
+  user_metadata:
+    dimension: completeness
+
+- name: item_id_not_null
+  criticality: error
+  check:
+    function: is_not_null
+    arguments:
+      column: item_id
+  user_metadata:
+    dimension: completeness
+
+- name: event_timestamp_not_null
+  criticality: error
+  check:
+    function: is_not_null
+    arguments:
+      column: event_timestamp
+  user_metadata:
+    dimension: completeness
+
+- name: unique_kafka_event
+  criticality: error
+  check:
+    function: is_unique
+    arguments:
+      columns:
+        - topic
+        - partition
+        - offset
+  user_metadata:
+    dimension: uniqueness
+
+- name: event_timestamp_not_in_future
+  criticality: error
+  check:
+    function: sql_expression
+    arguments:
+      expression: "event_timestamp <= current_timestamp()"
+  user_metadata:
+    dimension: validity
+
+
+- name: ingest_after_event
+  criticality: error
+  check:
+    function: sql_expression
+    arguments:
+      expression: "ingest_datetime >= event_timestamp"
+  user_metadata:
+    dimension: timeliness
