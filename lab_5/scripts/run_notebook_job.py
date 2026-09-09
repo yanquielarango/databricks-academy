@@ -1,4 +1,3 @@
-import os
 import sys
 import time
 
@@ -61,118 +60,56 @@ def wait_for_run(
 def main() -> None:
     client = WorkspaceClient()
 
-    notebook_path = os.getenv("DATABRICKS_NOTEBOOK_PATH")
+    current_user = client.current_user.me().user_name
 
-    if not notebook_path:
+    if not current_user:
         raise RuntimeError(
-            "DATABRICKS_NOTEBOOK_PATH is not set"
+            "Databricks did not return the current user"
         )
 
-    print("Getting Databricks Runtime version...")
-
-    spark_version = client.clusters.select_spark_version(
-        latest=True,
-        long_term_support=True,
+    notebook_path = (
+        f"/Workspace/Users/{current_user}"
+        f"/.bundle/lab_5/dev/files/notebooks/platform_check.py"
     )
 
-    print(f"Spark version: {spark_version}")
+    print(f"Current Databricks identity: {current_user}")
+    print("Submitting notebook with Databricks job compute...")
+    print(f"Notebook: {notebook_path}")
 
-    print("Selecting an available node type...")
-
-    node_type_id = client.clusters.select_node_type(
-        local_disk=True,
+    run_waiter = client.jobs.submit(
+        run_name="lab-9-notebook-automation",
+        tasks=[
+            jobs.SubmitTask(
+                task_key="run_platform_notebook",
+                notebook_task=jobs.NotebookTask(
+                    notebook_path=notebook_path,
+                ),
+            )
+        ],
     )
 
-    print(f"Node type: {node_type_id}")
+    run_id = run_waiter.run_id
 
-    cluster_id = None
-
-    try:
-        print("\nCreating temporary Databricks cluster...")
-
-        cluster = client.clusters.create_and_wait(
-            cluster_name="lab-9-platform-automation",
-            spark_version=spark_version,
-            node_type_id=node_type_id,
-            num_workers=1,
-            autotermination_minutes=15,
+    if run_id is None:
+        raise RuntimeError(
+            "Databricks did not return a run ID"
         )
 
-        cluster_id = cluster.cluster_id
+    print(
+        f"Notebook job submitted successfully. "
+        f"Run ID: {run_id}"
+    )
 
-        if not cluster_id:
-            raise RuntimeError(
-                "Databricks did not return a cluster ID"
-            )
-
-        print(
-            f"Cluster created successfully. "
-            f"Cluster ID: {cluster_id}"
-        )
-
-        print(
-            f"\nSubmitting notebook: "
-            f"{notebook_path}"
-        )
-
-        run_waiter = client.jobs.submit(
-            run_name="lab-9-notebook-automation",
-            tasks=[
-                jobs.SubmitTask(
-                    task_key="run_platform_notebook",
-                    existing_cluster_id=cluster_id,
-                    notebook_task=jobs.NotebookTask(
-                        notebook_path=notebook_path,
-                    ),
-                )
-            ],
-        )
-
-        run = run_waiter.result()
-
-        if run.run_id is None:
-            raise RuntimeError(
-                "Databricks did not return a run ID"
-            )
-
-        run_id = run.run_id
-
-        print(
-            f"Notebook job submitted. "
-            f"Run ID: {run_id}"
-        )
-
-        wait_for_run(
-            client=client,
-            run_id=run_id,
-        )
-
-    finally:
-        if cluster_id:
-            print(
-                f"\nDeleting temporary cluster: "
-                f"{cluster_id}"
-            )
-
-            try:
-                client.clusters.permanent_delete(
-                    cluster_id=cluster_id
-                )
-
-                print(
-                    "Temporary cluster deleted."
-                )
-
-            except Exception as cleanup_error:
-                print(
-                    "WARNING: Failed to delete "
-                    f"temporary cluster: {cleanup_error}"
-                )
+    wait_for_run(
+        client=client,
+        run_id=run_id,
+    )
 
 
 if __name__ == "__main__":
     try:
         main()
+
     except Exception as exc:
         print(
             f"\nPlatform automation failed: {exc}"

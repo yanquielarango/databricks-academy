@@ -11,6 +11,7 @@ dependencies = [
     "numpy",
     "confluent-kafka",
     "databricks-sdk[notebook]>=0.123.0",
+    "pip-system-certs>=5.3",
 ]
 
 [dependency-groups]
