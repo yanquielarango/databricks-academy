@@ -1,0 +1,112 @@
+name: Databricks Automation
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to run
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+
+jobs:
+  run-dev:
+    if: inputs.environment == 'dev'
+    runs-on: ubuntu-latest
+    environment: dev
+
+    permissions:
+      id-token: write
+      contents: read
+
+    defaults:
+      run:
+        working-directory: lab_5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Azure login with OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+
+      - name: Trigger pipeline
+        env:
+          DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+          DATABRICKS_AUTH_TYPE: azure-cli
+          DATABRICKS_PIPELINE_ID: ${{ vars.LAB6_ETL_PIPELINE_ID_DEV }}
+        run: uv run python scripts/trigger_pipeline.py
+
+      - name: Run DQX
+        env:
+          DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+          DATABRICKS_AUTH_TYPE: azure-cli
+        run: uv run python scripts/run_dqx.py
+
+      - name: Run reconciliation
+        env:
+          DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+          DATABRICKS_AUTH_TYPE: azure-cli
+        run: uv run python scripts/run_reconciliation.py
+
+      - name: Run governance job
+        env:
+          DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+          DATABRICKS_AUTH_TYPE: azure-cli
+          DATABRICKS_JOB_ID: ${{ vars.GOLD_GOVERNANCE_JOB_ID_DEV }}
+        run: uv run python scripts/databricks_automation.py
+
+  run-prod:
+    if: inputs.environment == 'prod'
+    runs-on: ubuntu-latest
+    environment: prod
+
+    defaults:
+      run:
+        working-directory: lab_5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Trigger pipeline
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_PROD }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_PROD }}
+          DATABRICKS_PIPELINE_ID: ${{ vars.LAB6_ETL_PIPELINE_ID_PROD }}
+        run: uv run python scripts/trigger_pipeline.py
+
+      - name: Run governance job
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_PROD }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_PROD }}
+          DATABRICKS_JOB_ID: ${{ vars.GOLD_GOVERNANCE_JOB_ID_PROD }}
+        run: uv run python scripts/databricks_automation.py

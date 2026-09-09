@@ -1,10 +1,16 @@
-name: Test Databricks OIDC
+name: Deploy DEV
 
 on:
-  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
 
 jobs:
-  test-oidc:
+  deploy-dev:
     runs-on: ubuntu-latest
     environment: dev
 
@@ -12,15 +18,13 @@ jobs:
       id-token: write
       contents: read
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    defaults:
+      run:
+        working-directory: lab_5
 
-      - name: Check GitHub variables
-        run: |
-          echo "CLIENT_ID=${{ vars.AZURE_CLIENT_ID }}"
-          echo "TENANT_ID=${{ vars.AZURE_TENANT_ID }}"
-          echo "DATABRICKS_HOST=${{ vars.DATABRICKS_HOST }}"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Azure login with OIDC
         uses: azure/login@v2
@@ -29,17 +33,17 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           allow-no-subscriptions: true
 
-      - name: Show Azure identity
-        run: az account show
-
       - name: Install Databricks CLI
         uses: databricks/setup-cli@main
 
-      - name: Show Databricks identity
-        working-directory: lab_5
+      - name: Validate bundle
         env:
           DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
           DATABRICKS_AUTH_TYPE: azure-cli
-        run: |
-          databricks auth describe
-          databricks current-user me
+        run: databricks bundle validate -t dev
+
+      - name: Deploy bundle to DEV
+        env:
+          DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+          DATABRICKS_AUTH_TYPE: azure-cli
+        run: databricks bundle deploy -t dev
