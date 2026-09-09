@@ -19,9 +19,10 @@ targets:
 
   dev:
     default: true
+    mode: development
 
     workspace:
-      host: https://dbc-c04a5ad1-7844.cloud.databricks.com
+      host: https://adb-7405614724722402.2.azuredatabricks.net
 
     presets:
       name_prefix: ''
@@ -35,7 +36,7 @@ targets:
     variables:
       catalog: dbr_dev
       warehouse_id: 1a8ff5cbf85f90de
-      owner_email: yanquiel.arango@gmail.com
+      owner_email: yanquiel@yagdata.com
 
     resources:
       volumes:
@@ -47,7 +48,6 @@ targets:
 
     workspace:
       host: https://adb-7405604503619901.1.azuredatabricks.net
-
       root_path: /Workspace/Users/yanquiel@softserve.academy/.bundle/${bundle.name}/${bundle.target}
 
     presets:
