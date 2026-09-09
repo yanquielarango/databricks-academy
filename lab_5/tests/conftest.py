@@ -1,5 +1,4 @@
 import pytest
-
 from databricks.connect import DatabricksSession
 
 
@@ -8,6 +7,5 @@ def spark():
     return (
         DatabricksSession.builder
         .serverless()
-        .profile("default")
         .getOrCreate()
     )
