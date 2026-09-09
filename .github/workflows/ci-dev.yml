@@ -13,6 +13,11 @@ jobs:
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
+    environment: dev
+
+    permissions:
+      id-token: write
+      contents: read
 
     defaults:
       run:
@@ -33,14 +38,22 @@ jobs:
       - name: Install project dependencies
         run: uv sync
 
-      - name: Run unit tests
-        run: uv run pytest -m unit_test -v
+      - name: Azure login with OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
 
+      - name: Run unit tests
+        env:
+          DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+          DATABRICKS_AUTH_TYPE: azure-cli
+        run: uv run pytest -m unit_test -v
 
   validate:
     name: Validate Bundle
     needs: unit-tests
-
     runs-on: ubuntu-latest
     environment: dev
 
@@ -72,11 +85,9 @@ jobs:
           DATABRICKS_AUTH_TYPE: azure-cli
         run: databricks bundle validate -t dev
 
-
   deploy-dev:
     name: Deploy DEV
     needs: validate
-
     runs-on: ubuntu-latest
     environment: dev
 
