@@ -155,11 +155,49 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           allow-no-subscriptions: true
 
+      - name: Install Databricks CLI
+        uses: databricks/setup-cli@main
+
+      - name: Get deployed pipeline ID
+        id: pipeline
+        env:
+          DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+          DATABRICKS_AUTH_TYPE: azure-cli
+        shell: bash
+        run: |
+          echo "Reading deployed bundle resources..."
+
+          SUMMARY=$(databricks bundle summary -t dev --force-pull)
+
+          echo "$SUMMARY"
+
+          PIPELINE_URL=$(echo "$SUMMARY" \
+            | awk '
+                /Pipelines:/ {in_pipelines=1; next}
+                in_pipelines && /URL:/ {print $2; exit}
+              ')
+
+          if [ -z "$PIPELINE_URL" ]; then
+            echo "Could not find pipeline URL in bundle summary."
+            exit 1
+          fi
+
+          PIPELINE_ID=$(echo "$PIPELINE_URL" \
+            | sed -E 's#.*/pipelines/([^?]+).*#\1#')
+
+          if [ -z "$PIPELINE_ID" ]; then
+            echo "Could not determine pipeline ID."
+            exit 1
+          fi
+
+          echo "Pipeline ID: $PIPELINE_ID"
+          echo "pipeline_id=$PIPELINE_ID" >> "$GITHUB_OUTPUT"
+
       - name: Trigger pipeline and monitor
         env:
           DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
           DATABRICKS_AUTH_TYPE: azure-cli
-          DATABRICKS_PIPELINE_NAME: lab_5_etl
+          DATABRICKS_PIPELINE_ID: ${{ steps.pipeline.outputs.pipeline_id }}
           PIPELINE_FULL_REFRESH: "false"
         run: uv run python -u scripts/trigger_pipeline.py
 

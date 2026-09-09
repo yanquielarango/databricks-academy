@@ -16,44 +16,10 @@ FAILURE_STATES = {
 }
 
 
-def get_pipeline_id(
-    client: WorkspaceClient,
-    pipeline_name: str,
-) -> str:
-    matches = []
-
-    for pipeline in client.pipelines.list_pipelines():
-        if pipeline.name == pipeline_name:
-            matches.append(pipeline)
-
-    if not matches:
-        raise RuntimeError(
-            f"Pipeline '{pipeline_name}' was not found"
-        )
-
-    if len(matches) > 1:
-        raise RuntimeError(
-            f"More than one pipeline named "
-            f"'{pipeline_name}' was found"
-        )
-
-    pipeline_id = matches[0].pipeline_id
-
-    if not pipeline_id:
-        raise RuntimeError(
-            f"Pipeline '{pipeline_name}' has no pipeline ID"
-        )
-
-    return pipeline_id
-
-
 def main() -> None:
     client = WorkspaceClient()
 
-    pipeline_name = os.getenv(
-        "DATABRICKS_PIPELINE_NAME",
-        "lab_5_etl",
-    )
+    pipeline_id = os.getenv("DATABRICKS_PIPELINE_ID")
 
     full_refresh = (
         os.getenv(
@@ -63,24 +29,15 @@ def main() -> None:
         == "true"
     )
 
-    print(
-        f"Looking for Databricks pipeline: "
-        f"{pipeline_name}"
-    )
-
-    pipeline_id = get_pipeline_id(
-        client=client,
-        pipeline_name=pipeline_name,
-    )
+    if not pipeline_id:
+        raise RuntimeError(
+            "DATABRICKS_PIPELINE_ID is not set"
+        )
 
     print(
-        f"Pipeline found. "
-        f"Pipeline ID: {pipeline_id}"
-    )
-
-    print(
-        f"Triggering pipeline "
-        f"(full_refresh={full_refresh})..."
+        f"Triggering Databricks Pipeline: "
+        f"{pipeline_id} "
+        f"(full_refresh={full_refresh})"
     )
 
     update = client.pipelines.start_update(
@@ -107,8 +64,8 @@ def main() -> None:
         )
 
         if (
-            not result.update
-            or not result.update.state
+            result.update is None
+            or result.update.state is None
         ):
             raise RuntimeError(
                 "Databricks did not return "
