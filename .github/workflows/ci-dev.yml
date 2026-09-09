@@ -1,19 +1,18 @@
-name: CI
+name: CI DEV
 
 on:
   pull_request:
     branches:
       - main
+    types:
+      - opened
+      - synchronize
+      - reopened
 
 jobs:
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
-    environment: dev
-
-    permissions:
-      id-token: write
-      contents: read
 
     defaults:
       run:
@@ -34,22 +33,14 @@ jobs:
       - name: Install project dependencies
         run: uv sync
 
-      - name: Azure login with OIDC
-        uses: azure/login@v2
-        with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          allow-no-subscriptions: true
-
       - name: Run unit tests
-        env:
-          DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
-          DATABRICKS_AUTH_TYPE: azure-cli
         run: uv run pytest -m unit_test -v
+
 
   validate:
     name: Validate Bundle
     needs: unit-tests
+
     runs-on: ubuntu-latest
     environment: dev
 
@@ -80,3 +71,39 @@ jobs:
           DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
           DATABRICKS_AUTH_TYPE: azure-cli
         run: databricks bundle validate -t dev
+
+
+  deploy-dev:
+    name: Deploy DEV
+    needs: validate
+
+    runs-on: ubuntu-latest
+    environment: dev
+
+    permissions:
+      id-token: write
+      contents: read
+
+    defaults:
+      run:
+        working-directory: lab_5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Azure login with OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+
+      - name: Install Databricks CLI
+        uses: databricks/setup-cli@main
+
+      - name: Deploy bundle to DEV
+        env:
+          DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+          DATABRICKS_AUTH_TYPE: azure-cli
+        run: databricks bundle deploy -t dev
