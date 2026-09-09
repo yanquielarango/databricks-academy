@@ -16,7 +16,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Check variables
+      - name: Check GitHub variables
         run: |
           echo "CLIENT_ID=${{ vars.AZURE_CLIENT_ID }}"
           echo "TENANT_ID=${{ vars.AZURE_TENANT_ID }}"
