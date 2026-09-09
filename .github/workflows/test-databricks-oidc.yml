@@ -16,6 +16,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check variables
+        run: |
+          echo "CLIENT_ID=${{ vars.AZURE_CLIENT_ID }}"
+          echo "TENANT_ID=${{ vars.AZURE_TENANT_ID }}"
+          echo "SUBSCRIPTION_ID=${{ vars.AZURE_SUBSCRIPTION_ID }}"
+          echo "DATABRICKS_HOST=${{ vars.DATABRICKS_HOST }}"
+
       - name: Azure login with OIDC
         uses: azure/login@v2
         with:
