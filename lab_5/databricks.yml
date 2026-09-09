@@ -35,7 +35,7 @@ targets:
 
     variables:
       catalog: dbr_dev
-      warehouse_id: 1a8ff5cbf85f90de
+      warehouse_id: d6092c263a047666
       owner_email: yanquiel@yagdata.com
 
     resources:
