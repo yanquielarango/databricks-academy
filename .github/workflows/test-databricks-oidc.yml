@@ -36,6 +36,7 @@ jobs:
         uses: databricks/setup-cli@main
 
       - name: Show Databricks identity
+        working-directory: lab_5
         env:
           DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
           DATABRICKS_AUTH_TYPE: azure-cli
