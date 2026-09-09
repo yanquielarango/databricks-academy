@@ -119,8 +119,8 @@ jobs:
           DATABRICKS_AUTH_TYPE: azure-cli
         run: databricks bundle deploy -t dev
 
-  lab9-automation:
-    name: Lab 9 Automation
+  post-deploy-automation:
+    name: Post-deploy Automation
     needs: deploy-dev
     runs-on: ubuntu-latest
     environment: dev
@@ -155,7 +155,27 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           allow-no-subscriptions: true
 
-      - name: Run Lab 9 automation
+      - name: Trigger pipeline and monitor
+        env:
+          DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+          DATABRICKS_AUTH_TYPE: azure-cli
+          DATABRICKS_PIPELINE_NAME: lab_5_etl
+          PIPELINE_FULL_REFRESH: "false"
+        run: uv run python -u scripts/trigger_pipeline.py
+
+      - name: Run DQX checks
+        env:
+          DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+          DATABRICKS_AUTH_TYPE: azure-cli
+        run: uv run python -u scripts/run_dqx.py
+
+      - name: Run reconciliation checks
+        env:
+          DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+          DATABRICKS_AUTH_TYPE: azure-cli
+        run: uv run python -u scripts/run_reconciliation.py
+
+      - name: Run Lab 9 notebook automation
         env:
           DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
           DATABRICKS_AUTH_TYPE: azure-cli
