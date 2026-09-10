@@ -17,10 +17,19 @@ def main():
         .getOrCreate()
     )
 
+    session_user = (
+        spark.sql(
+            "SELECT session_user() AS session_user"
+        )
+        .collect()[0]
+        .session_user
+    )
+
     silver_table = f"{CATALOG}.{SILVER_SCHEMA}.{ORDERS_TABLE}"
     gold_table = f"{CATALOG}.{GOLD_SCHEMA}.{FACT_ORDERS_TABLE}"
 
     print("\nRunning reconciliation checks...")
+    print(f"Session user: {session_user}")
     print(f"Silver: {silver_table}")
     print(f"Gold:   {gold_table}")
 
