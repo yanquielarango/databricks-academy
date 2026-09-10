@@ -304,7 +304,7 @@ jobs:
       DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
       DATABRICKS_AUTH_TYPE: azure-cli
       APP_NAME: agent-data-platform-rag-v2
-      APP_SOURCE_PATH: /Workspace/Users/yanquiel@yagdata.com/databricks_apps/agent-data-platform-rag-v2-ci
+      APP_SOURCE_PATH: /Workspace/Shared/databricks_apps/agent-data-platform-rag-v2-ci
 
     steps:
       - name: Checkout repository
