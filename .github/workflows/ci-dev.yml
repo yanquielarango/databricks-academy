@@ -285,3 +285,53 @@ jobs:
           DATABRICKS_AUTH_TYPE: azure-cli
         run: |
           uv run python -u scripts/run_notebook_job.py
+
+  deploy-rag-app:
+    name: Deploy RAG App
+    needs: post-deploy-automation
+    runs-on: ubuntu-latest
+    environment: dev
+
+    permissions:
+      id-token: write
+      contents: read
+
+    defaults:
+      run:
+        working-directory: data_platform/app
+
+    env:
+      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+      DATABRICKS_AUTH_TYPE: azure-cli
+      APP_NAME: agent-data-platform-rag-v2
+      APP_SOURCE_PATH: /Workspace/Users/yanquiel@yagdata.com/databricks_apps/agent-data-platform-rag-v2-ci
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Azure login with OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+
+      - name: Install Databricks CLI
+        uses: databricks/setup-cli@main
+
+      - name: Check Databricks authentication
+        run: |
+          databricks current-user me
+
+      - name: Sync RAG app source
+        run: |
+          databricks sync \
+            . \
+            "$APP_SOURCE_PATH"
+
+      - name: Deploy RAG app
+        run: |
+          databricks apps deploy "$APP_NAME" \
+            --source-code-path "$APP_SOURCE_PATH" \
+            --mode SNAPSHOT

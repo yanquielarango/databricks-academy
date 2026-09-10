@@ -8,8 +8,9 @@ dependencies = [
     "pandas",
     "numpy",
     "databricks-sdk[notebook]>=0.123.0",
-    "pip-system-certs>=5.3",
     "databricks-zerobus-ingest-sdk>=1.8.0",
+    "databricks-ai-search>=0.78",
+    "openai>=3.11.0",
 ]
 
 [dependency-groups]

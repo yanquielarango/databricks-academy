@@ -7,6 +7,15 @@ from databricks.sdk.service import jobs
 
 POLL_INTERVAL_SECONDS = 10
 
+BUNDLE_ROOT = (
+    "/Workspace/Users/yanquiel@yagdata.com"
+    "/.bundle/data_platform/dev"
+)
+
+NOTEBOOK_PATH = (
+    f"{BUNDLE_ROOT}/files/notebooks/platform_check.py"
+)
+
 
 def wait_for_run(
     client: WorkspaceClient,
@@ -62,19 +71,9 @@ def main() -> None:
 
     current_user = client.current_user.me().user_name
 
-    if not current_user:
-        raise RuntimeError(
-            "Databricks did not return the current user"
-        )
-
-    notebook_path = (
-        f"/Workspace/Users/{current_user}"
-        f"/.bundle/data_platform/dev/files/notebooks/platform_check.py"
-    )
-
     print(f"Current Databricks identity: {current_user}")
     print("Submitting notebook with Databricks job compute...")
-    print(f"Notebook: {notebook_path}")
+    print(f"Notebook: {NOTEBOOK_PATH}")
 
     run_waiter = client.jobs.submit(
         run_name="lab-9-notebook-automation",
@@ -82,7 +81,7 @@ def main() -> None:
             jobs.SubmitTask(
                 task_key="run_platform_notebook",
                 notebook_task=jobs.NotebookTask(
-                    notebook_path=notebook_path,
+                    notebook_path=NOTEBOOK_PATH,
                 ),
             )
         ],
@@ -109,7 +108,6 @@ def main() -> None:
 if __name__ == "__main__":
     try:
         main()
-
     except Exception as exc:
         print(
             f"\nPlatform automation failed: {exc}"

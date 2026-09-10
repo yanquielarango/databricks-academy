@@ -1,0 +1,70 @@
+bundle:
+  name: agent_data_platform_rag
+
+resources:
+  apps:
+    agent_data_platform_rag:
+      name: "agent-data-platform-rag-v2"
+      description: "RAG agent for the data platform project using Databricks AI Search and a Databricks Foundation Model."
+      source_code_path: ./
+
+      config:
+        command: ["uv", "run", "start-app"]
+
+        env:
+          - name: MLFLOW_TRACKING_URI
+            value: "databricks"
+
+          - name: MLFLOW_REGISTRY_URI
+            value: "databricks-uc"
+
+          - name: API_PROXY
+            value: "http://localhost:8000/invocations"
+
+          - name: CHAT_APP_PORT
+            value: "3000"
+
+          - name: CHAT_PROXY_TIMEOUT_SECONDS
+            value: "300"
+
+          - name: MLFLOW_EXPERIMENT_ID
+            value_from: "experiment"
+
+          - name: RAG_INDEX_NAME
+            value: "dbr_dev.yanquiel_silver.rag_documents_index"
+
+          - name: LLM_ENDPOINT
+            value: "databricks-qwen3-next-80b-a3b-instruct"
+
+      resources:
+        - name: "experiment"
+          experiment:
+            experiment_id: "1627925471992516"
+            permission: "CAN_MANAGE"
+
+        - name: "llm"
+          serving_endpoint:
+            name: "databricks-qwen3-next-80b-a3b-instruct"
+            permission: "CAN_QUERY"
+
+        - name: "rag_index"
+          uc_securable:
+            securable_full_name: "dbr_dev.yanquiel_silver.rag_documents_index"
+            securable_type: "TABLE"
+            permission: "SELECT"
+
+targets:
+  dev:
+    mode: development
+    default: true
+
+    workspace:
+      host: https://adb-7405614724722402.2.azuredatabricks.net
+
+  prod:
+    mode: production
+
+    resources:
+      apps:
+        agent_data_platform_rag:
+          name: "agent-data-platform-rag-v2"
