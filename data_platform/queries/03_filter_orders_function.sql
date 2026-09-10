@@ -5,7 +5,8 @@ RETURN
     WHEN session_user() IN (
       'yanquiel@yagdata.com',
       'yanquiel.arango@gmail.com',
-      'yanquiel@softserve.academy'
+      'yanquiel@softserve.academy',
+      '9dc17781-cd90-4512-aaaa-dc45aa687261'
     )
       THEN TRUE
 
