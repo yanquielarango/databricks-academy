@@ -1,0 +1,27 @@
+resources:
+  pipelines:
+    data_platform_etl:
+      name: data_platform_etl
+
+      catalog: ${var.catalog}
+      schema: ${resources.schemas.bronze_schema.name}
+
+      configuration:
+        catalog: ${var.catalog}
+        bronze_schema: ${resources.schemas.bronze_schema.name}
+        silver_schema: ${resources.schemas.silver_schema.name}
+        gold_schema: ${resources.schemas.gold_schema.name}
+        start_date: "2023-01-01"
+        end_date: "2023-12-31"
+
+      serverless: true
+
+      root_path: ../src
+
+      libraries:
+        - glob:
+            include: ../src/transformations/**
+
+      environment:
+        dependencies:
+          - --editable ${workspace.file_path}

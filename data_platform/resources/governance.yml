@@ -1,0 +1,35 @@
+resources:
+  jobs:
+    gold_governance_job:
+      name: gold_governance_job
+
+      tasks:
+        - task_key: create_cls_mask
+          sql_task:
+            file:
+              path: ../queries/01_mask_discount_code_function.sql
+            warehouse_id: ${var.warehouse_id}
+
+        - task_key: apply_cls_mask
+          depends_on:
+            - task_key: create_cls_mask
+          sql_task:
+            file:
+              path: ../queries/02_apply_discount_code_mask.sql
+            warehouse_id: ${var.warehouse_id}
+
+        - task_key: create_rls_function
+          depends_on:
+            - task_key: apply_cls_mask
+          sql_task:
+            file:
+              path: ../queries/03_filter_orders_function.sql
+            warehouse_id: ${var.warehouse_id}
+
+        - task_key: apply_rls
+          depends_on:
+            - task_key: create_rls_function
+          sql_task:
+            file:
+              path: ../queries/04_apply_orders_row_filter.sql
+            warehouse_id: ${var.warehouse_id}

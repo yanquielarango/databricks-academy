@@ -21,7 +21,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: lab_5
+        working-directory: data_platform
 
     steps:
       - name: Checkout repository
@@ -63,7 +63,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: lab_5
+        working-directory: data_platform
 
     steps:
       - name: Checkout repository
@@ -97,7 +97,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: lab_5
+        working-directory: data_platform
 
     steps:
       - name: Checkout repository
@@ -131,7 +131,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: lab_5
+        working-directory: data_platform
 
     steps:
       - name: Checkout repository
@@ -157,6 +157,57 @@ jobs:
 
       - name: Install Databricks CLI
         uses: databricks/setup-cli@main
+
+      # ---------------------------------------------------------
+      # Streaming infrastructure
+      # ---------------------------------------------------------
+
+      - name: Check Bronze streaming table
+        id: streaming
+        env:
+          DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+          DATABRICKS_AUTH_TYPE: azure-cli
+        shell: bash
+        run: |
+          set +e
+
+          OUTPUT=$(databricks tables get \
+            dbr_dev.yanquiel_bronze.orders_bronze \
+            2>&1)
+
+          EXIT_CODE=$?
+
+          set -e
+
+          if [ $EXIT_CODE -eq 0 ]; then
+            echo "Bronze streaming table already exists."
+            echo "setup_required=false" >> "$GITHUB_OUTPUT"
+
+          elif echo "$OUTPUT" | grep -qiE \
+            "does not exist|NOT_FOUND|RESOURCE_DOES_NOT_EXIST"; then
+
+            echo "Bronze streaming table does not exist."
+            echo "setup_required=true" >> "$GITHUB_OUTPUT"
+
+          else
+            echo "Unexpected error checking Bronze table:"
+            echo "$OUTPUT"
+            exit 1
+          fi
+
+      - name: Setup streaming resources
+        if: steps.streaming.outputs.setup_required == 'true'
+        env:
+          DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+          DATABRICKS_AUTH_TYPE: azure-cli
+        run: |
+          databricks bundle run \
+            -t dev \
+            setup_streaming_resources
+
+      # ---------------------------------------------------------
+      # Pipeline
+      # ---------------------------------------------------------
 
       - name: Get deployed pipeline ID
         id: pipeline
@@ -199,22 +250,38 @@ jobs:
           DATABRICKS_AUTH_TYPE: azure-cli
           DATABRICKS_PIPELINE_ID: ${{ steps.pipeline.outputs.pipeline_id }}
           PIPELINE_FULL_REFRESH: "false"
-        run: uv run python -u scripts/trigger_pipeline.py
+        run: |
+          uv run python -u scripts/trigger_pipeline.py
+
+      # ---------------------------------------------------------
+      # Data quality
+      # ---------------------------------------------------------
 
       - name: Run DQX checks
         env:
           DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
           DATABRICKS_AUTH_TYPE: azure-cli
-        run: uv run python -u scripts/run_dqx.py
+        run: |
+          uv run python -u scripts/run_dqx.py
+
+      # ---------------------------------------------------------
+      # Reconciliation
+      # ---------------------------------------------------------
 
       - name: Run reconciliation checks
         env:
           DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
           DATABRICKS_AUTH_TYPE: azure-cli
-        run: uv run python -u scripts/run_reconciliation.py
+        run: |
+          uv run python -u scripts/run_reconciliation.py
+
+      # ---------------------------------------------------------
+      # Platform automation check
+      # ---------------------------------------------------------
 
       - name: Run Lab 9 notebook automation
         env:
           DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
           DATABRICKS_AUTH_TYPE: azure-cli
-        run: uv run python -u scripts/run_notebook_job.py
+        run: |
+          uv run python -u scripts/run_notebook_job.py
