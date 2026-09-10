@@ -18,12 +18,7 @@ variables:
   zerobus_principal:
     description: Service principal used by Zerobus ingestion
 
-permissions:
-  - user_name: yanquiel@yagdata.com
-    level: CAN_MANAGE
 
-  - service_principal_name: 9dc17781-cd90-4512-aaaa-dc45aa687261
-    level: CAN_MANAGE
 
 targets:
 
