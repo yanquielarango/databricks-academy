@@ -25,6 +25,7 @@ targets:
 
     workspace:
       host: https://adb-7405614724722402.2.azuredatabricks.net
+      root_path: /Workspace/Users/yanquiel@yagdata.com/.bundle/${bundle.name}/${bundle.target}
 
     presets:
       name_prefix: ''
@@ -44,6 +45,9 @@ targets:
     resources:
       volumes:
         landing_volume:
+          catalog_name: ${var.catalog}
+          schema_name: ${resources.schemas.bronze_schema.name}
+          name: landing
           volume_type: MANAGED
 
   prod:
@@ -66,11 +70,17 @@ targets:
     resources:
       volumes:
         landing_volume:
+          catalog_name: ${var.catalog}
+          schema_name: ${resources.schemas.bronze_schema.name}
+          name: landing
           volume_type: EXTERNAL
           storage_location: abfss://yanquiel@dlspl21databricks.dfs.core.windows.net/landing
 
       schemas:
         gold_schema:
+          catalog_name: ${var.catalog}
+          name: yanquiel_gold
+
           grants:
             - principal: ${var.owner_email}
               privileges:
