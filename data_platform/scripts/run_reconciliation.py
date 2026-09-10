@@ -9,8 +9,6 @@ GOLD_SCHEMA = "yanquiel_gold"
 ORDERS_TABLE = "orders_silver"
 FACT_ORDERS_TABLE = "fact_orders"
 
-CI_SERVICE_PRINCIPAL = "9dc17781-cd90-4512-aaaa-dc45aa687261"
-
 
 def main():
     spark = (
@@ -19,31 +17,10 @@ def main():
         .getOrCreate()
     )
 
-    session_user = (
-        spark.sql(
-            "SELECT session_user() AS session_user"
-        )
-        .collect()[0]
-        .session_user
-    )
-
-    ci_match = (
-        spark.sql(
-            f"""
-            SELECT session_user() = '{CI_SERVICE_PRINCIPAL}'
-            AS matches_ci_user
-            """
-        )
-        .collect()[0]
-        .matches_ci_user
-    )
-
     silver_table = f"{CATALOG}.{SILVER_SCHEMA}.{ORDERS_TABLE}"
     gold_table = f"{CATALOG}.{GOLD_SCHEMA}.{FACT_ORDERS_TABLE}"
 
     print("\nRunning reconciliation checks...")
-    print(f"Session user: {session_user}")
-    print(f"Databricks session matches CI SP: {ci_match}")
     print(f"Silver: {silver_table}")
     print(f"Gold:   {gold_table}")
 
