@@ -49,7 +49,7 @@ jobs:
         env:
           DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
           DATABRICKS_AUTH_TYPE: azure-cli
-        run: uv run pytest -m unit_test -v
+        run: uv run pytest tests -m unit_test -v
 
   validate:
     name: Validate Bundle
