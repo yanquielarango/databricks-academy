@@ -19,38 +19,19 @@ DOCUMENT_SCHEMA = StructType(
 )
 
 
-def load_markdown_documents(
-    spark: SparkSession,
-    knowledge_dir: Path = KNOWLEDGE_DIR,
-) -> DataFrame:
+def load_markdown_documents(spark: SparkSession, knowledge_dir: Path = KNOWLEDGE_DIR) -> DataFrame:
     rows = []
 
     for path in knowledge_dir.glob("*.md"):
         content = path.read_text(encoding="utf-8")
+        rows.append((path.stem, path.name, str(path), content))
 
-        rows.append(
-            (
-                path.stem,
-                path.name,
-                str(path),
-                content,
-            )
-        )
-
-    return spark.createDataFrame(
-        rows,
-        schema=DOCUMENT_SCHEMA,
-    )
+    return spark.createDataFrame(rows, schema=DOCUMENT_SCHEMA)
 
 
 def clean_documents(df: DataFrame) -> DataFrame:
     return (
         df
-        .withColumn(
-            "content",
-            F.trim(F.col("content")),
-        )
-        .filter(
-            F.length(F.col("content")) > 0
-        )
+        .withColumn("content", F.trim(F.col("content")))
+        .filter(F.length(F.col("content")) > 0)
     )

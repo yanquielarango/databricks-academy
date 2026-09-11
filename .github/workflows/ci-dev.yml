@@ -51,6 +51,7 @@ jobs:
           DATABRICKS_AUTH_TYPE: azure-cli
         run: uv run pytest tests -m unit_test -v
 
+
   validate:
     name: Validate Bundle
     needs: unit-tests
@@ -85,6 +86,7 @@ jobs:
           DATABRICKS_AUTH_TYPE: azure-cli
         run: databricks bundle validate -t dev
 
+
   deploy-dev:
     name: Deploy DEV
     needs: validate
@@ -118,6 +120,7 @@ jobs:
           DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
           DATABRICKS_AUTH_TYPE: azure-cli
         run: databricks bundle deploy -t dev
+
 
   post-deploy-automation:
     name: Post-deploy Automation
@@ -176,7 +179,6 @@ jobs:
             2>&1)
 
           EXIT_CODE=$?
-
           set -e
 
           if [ $EXIT_CODE -eq 0 ]; then
@@ -283,8 +285,10 @@ jobs:
         env:
           DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
           DATABRICKS_AUTH_TYPE: azure-cli
+          BUNDLE_ROOT: /Workspace/Users/yanquiel@yagdata.com/.bundle/data_platform/dev
         run: |
           uv run python -u scripts/run_notebook_job.py
+
 
   deploy-rag-app:
     name: Deploy RAG App

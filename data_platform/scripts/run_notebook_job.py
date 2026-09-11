@@ -1,3 +1,4 @@
+import os
 import sys
 import time
 
@@ -7,10 +8,12 @@ from databricks.sdk.service import jobs
 
 POLL_INTERVAL_SECONDS = 10
 
-BUNDLE_ROOT = (
-    "/Workspace/Users/yanquiel@yagdata.com"
-    "/.bundle/data_platform/dev"
-)
+BUNDLE_ROOT = os.getenv("BUNDLE_ROOT")
+
+if not BUNDLE_ROOT:
+    raise RuntimeError(
+        "BUNDLE_ROOT is not set"
+    )
 
 NOTEBOOK_PATH = (
     f"{BUNDLE_ROOT}/files/notebooks/platform_check.py"
@@ -21,6 +24,7 @@ def wait_for_run(
     client: WorkspaceClient,
     run_id: int,
 ) -> None:
+
     while True:
         run = client.jobs.get_run(run_id=run_id)
 
@@ -43,6 +47,7 @@ def wait_for_run(
         )
 
         if lifecycle_state == "TERMINATED":
+
             if result_state == "SUCCESS":
                 print("Notebook job completed successfully.")
                 return
@@ -67,13 +72,22 @@ def wait_for_run(
 
 
 def main() -> None:
+
     client = WorkspaceClient()
 
     current_user = client.current_user.me().user_name
 
-    print(f"Current Databricks identity: {current_user}")
-    print("Submitting notebook with Databricks job compute...")
-    print(f"Notebook: {NOTEBOOK_PATH}")
+    print(
+        f"Current Databricks identity: {current_user}"
+    )
+
+    print(
+        "Submitting notebook with Databricks job compute..."
+    )
+
+    print(
+        f"Notebook: {NOTEBOOK_PATH}"
+    )
 
     run_waiter = client.jobs.submit(
         run_name="lab-9-notebook-automation",
@@ -108,6 +122,7 @@ def main() -> None:
 if __name__ == "__main__":
     try:
         main()
+
     except Exception as exc:
         print(
             f"\nPlatform automation failed: {exc}"

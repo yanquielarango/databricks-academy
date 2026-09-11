@@ -33,40 +33,13 @@ def dim_date():
 
     return (
         df
-        .withColumn(
-            "date_key",
-            F.date_format(
-                F.col("full_date"),
-                "yyyyMMdd",
-            ).cast("int"),
-        )
-        .withColumn(
-            "year",
-            F.year("full_date"),
-        )
-        .withColumn(
-            "month",
-            F.month("full_date"),
-        )
-        .withColumn(
-            "day",
-            F.dayofmonth("full_date"),
-        )
-        .withColumn(
-            "day_name",
-            F.date_format(
-                F.col("full_date"),
-                "EEEE",
-            ),
-        )
-        .withColumn(
-            "day_of_week_num",
-            F.dayofweek("full_date"),
-        )
-        .withColumn(
-            "is_weekend",
-            F.col("day_of_week_num").isin(1, 7),
-        )
+        .withColumn("date_key", F.date_format(F.col("full_date"), "yyyyMMdd").cast("int"))
+        .withColumn("year", F.year("full_date"))
+        .withColumn("month", F.month("full_date"))
+        .withColumn("day", F.dayofmonth("full_date"))
+        .withColumn("day_name", F.date_format(F.col("full_date"), "EEEE"))
+        .withColumn("day_of_week_num", F.dayofweek("full_date"))
+        .withColumn("is_weekend", F.col("day_of_week_num").isin(1, 7))
         .select(
             "full_date",
             "date_key",

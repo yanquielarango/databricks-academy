@@ -1,687 +1,860 @@
-# Data Engineering Pipeline with Lakeflow Declarative Pipelines
+# Data Platform
 
-This project contains a Bronze → Silver → Gold data pipeline built with Azure Databricks and Unity Catalog.
+End-to-end data platform built on Databricks, combining batch and streaming ingestion, Lakehouse processing, data quality, reconciliation, automation, CI/CD, and a RAG assistant powered by Databricks AI Search.
 
-The pipeline uses Lakeflow Declarative Pipelines for data processing and Databricks Asset Bundles for deployment. GitHub Actions is used for CI/CD.
+The project brings together the main concepts covered in Labs 8, 9, 11, and 12 and applies them as a single integrated solution rather than as separate exercises.
 
-The data comes from two sources:
+---
 
-- Order events from Confluent Cloud using Kafka
-- Menu data from CSV files
+## Overview
 
-The project was developed across Labs 5, 6 and 7. Each lab extends the same pipeline instead of creating a separate project.
+The goal of this project is to build and automate a complete data platform on Databricks.
 
-- **Lab 5** implements the Bronze and Silver layers with streaming ingestion and SCD Type 2 processing
-- **Lab 6** adds the Gold layer, AI/BI dashboard, alerting, governance and CI/CD
-- **Lab 7** adds unit testing and data quality testing with pytest, Databricks Connect, DQX, quarantine handling and reconciliation checks
+The platform processes two different types of data:
 
-> Labs 5, 6 and 7 are kept inside the same `lab_5/` project. Each lab builds on the previous one. Keeping everything in the same project avoids duplicating pipeline logic and keeps Bronze, Silver and Gold as one continuous data pipeline.
+- Order events ingested in near real time through Databricks Zerobus.
+- Menu data ingested from CSV files using Auto Loader.
+
+The data is processed through Bronze, Silver, and Gold layers using a Lakeflow pipeline. Data quality checks and reconciliation are executed after the pipeline to verify the resulting datasets.
+
+The project also includes a custom RAG assistant that uses the project documentation as its knowledge base. Databricks AI Search retrieves the relevant documentation and a custom agent uses that context to answer questions through a Databricks App.
+
+Infrastructure and Databricks resources are managed through Databricks Asset Bundles, while GitHub Actions handles validation, DEV deployment, post-deployment checks, and deployment of the RAG application.
 
 ---
 
 ## Architecture
 
+The solution is divided into three main areas:
+
+1. Data ingestion and Lakehouse processing.
+2. Data quality and operational validation.
+3. Retrieval-Augmented Generation and conversational access.
+
+### Data Platform
+
 ```text
-Kafka (Confluent)
-       |
-       v
-orders_bronze
-       |
-       v
-orders_parsed
-     /     \
-    v       v
-orders_silver   orders_quarantine
-    |
-    v
-fact_orders
-    |
-    v
-AI/BI Dashboard
+                           DATA SOURCES
 
+                  ┌──────────────┴──────────────┐
+                  │                             │
+             Order Events                  Menu Files
+                  │                             │
+               Zerobus                   CSV / Auto Loader
+                  │                             │
+                  └──────────────┬──────────────┘
+                                 │
+                                 ▼
+                              BRONZE
+                        Raw ingested data
+                                 │
+                                 ▼
+                         LAKEFLOW PIPELINE
+                                 │
+                                 ▼
+                              SILVER
+                    Validation and processing
+                    ├── Data validation
+                    ├── Order deduplication
+                    ├── Quarantine
+                    └── Menu SCD Type 2
+                                 │
+                                 ▼
+                               GOLD
+                      Business-ready datasets
+                                 │
+                      ┌──────────┴──────────┐
+                      │                     │
+                     DQX             Reconciliation
+                      │                     │
+                      └──────────┬──────────┘
+                                 │
+                                 ▼
+                         Validated platform
+```
 
-CSV Menu
-   |
-   v
+### RAG
+
+```text
+                     PROJECT DOCUMENTATION
+                              Markdown
+                                 │
+                                 ▼
+                              Chunking
+                                 │
+                                 ▼
+                          rag_documents
+                            Delta table
+                                 │
+                                 ▼
+                       Databricks AI Search
+                                 │
+                                 ▼
+                               MCP
+                                 │
+                                 ▼
+                         Custom RAG Agent
+                                 │
+                                 ▼
+            databricks-qwen3-next-80b-a3b-instruct
+                                 │
+                                 ▼
+                         Databricks App
+                                 │
+                                 ▼
+                         Conversational UI
+```
+
+---
+
+## Data Ingestion
+
+The project uses two ingestion patterns to represent streaming and file-based workloads.
+
+### Orders
+
+Orders are ingested as streaming events using Databricks Zerobus.
+
+A local Python producer sends order events to the Zerobus ingestion endpoint, which writes the events into the Bronze orders table in Unity Catalog.
+
+```text
+Python Producer
+      │
+      ▼
+Databricks Zerobus
+      │
+      ▼
+dbr_dev.yanquiel_bronze.orders_bronze
+```
+
+The Bronze layer preserves the incoming events before Silver processing is applied.
+
+The streaming infrastructure is also integrated into the deployment workflow. Before the pipeline is executed, the CI/CD process checks whether the Bronze streaming table exists.
+
+If the table already exists, the setup step is skipped. If it does not exist, the setup job creates the required streaming resources.
+
+This makes the setup operation idempotent and avoids recreating the Bronze streaming table during every deployment.
+
+### Menu
+
+Menu data follows a file-based ingestion pattern.
+
+CSV files are stored in a Unity Catalog Volume and processed with Databricks Auto Loader.
+
+```text
+CSV files
+    │
+    ▼
+Unity Catalog Volume
+    │
+    ▼
+Auto Loader
+    │
+    ▼
 menu_bronze
-   |
-   v
-menu_silver_clean
-   |
-   v
-menu_silver (SCD2)
-   |
-   v
-dim_menu_item
-   |
-   +----------> fact_orders
-
-dim_date ------> fact_orders
 ```
 
-Bronze and Silver are processed incrementally.
+The ingestion process also keeps metadata such as:
 
-Menu data is ingested with Auto Loader. Order events are read from Kafka using Structured Streaming.
+- source file name;
+- ingestion timestamp;
+- corrupt record information when applicable.
+
+This metadata can be used for traceability and troubleshooting.
 
 ---
 
-## Repository structure
+## Lakehouse Processing
+
+The platform follows the Medallion Architecture with Bronze, Silver, and Gold layers.
+
+### Bronze
+
+The Bronze layer contains the raw data received from the ingestion processes.
+
+Its purpose is to preserve source data before validation and business transformations are applied.
+
+Main Bronze datasets include:
 
 ```text
-lab_5/
-├── databricks.yml
-├── pyproject.toml
-├── uv.lock
-│
-├── dq/
-│   └── silver/
-│       ├── menu.yml
-│       └── orders.yml
-│
-├── queries/
-│
-├── resources/
-│
-├── scripts/
-│   ├── databricks_automation.py
-│   ├── run_dqx.py
-│   ├── run_reconciliation.py
-│   └── trigger_pipeline.py
-│
-├── src/
-│   ├── dashboard/
-│   ├── producer/
-│   │
-│   ├── transformation_functions/
-│   │   ├── fact_orders.py
-│   │   ├── menu.py
-│   │   └── orders.py
-│   │
-│   └── transformations/
-│       ├── bronze/
-│       ├── silver/
-│       └── gold/
-│
-└── tests/
-    ├── conftest.py
-    └── unit/
-        ├── test_fact_orders.py
-        ├── test_menu.py
-        └── test_orders.py
+dbr_dev.yanquiel_bronze.orders_bronze
+dbr_dev.yanquiel_bronze.menu_bronze
 ```
 
----
+Orders arrive through Zerobus, while menu data is loaded from files through Auto Loader.
 
-## Tech stack
+### Silver
 
-| Area | Technology |
-|---|---|
-| Data platform | Azure Databricks |
-| Pipelines | Lakeflow Declarative Pipelines |
-| Storage and governance | Delta Lake and Unity Catalog |
-| Streaming | Confluent Cloud Kafka |
-| File ingestion | Auto Loader |
-| Deployment | Databricks Asset Bundles |
-| CI/CD | GitHub Actions |
-| Unit testing | pytest |
-| Spark testing | Databricks Connect |
-| Data quality | Databricks Labs DQX |
-| Python dependencies | uv |
-| Dashboard | Databricks AI/BI |
+The Silver layer contains validated and processed data.
 
----
+For orders, the transformation includes:
 
-# Lab 5
+- required-field validation;
+- event-time processing;
+- one-day watermarking;
+- deduplication using `order_details_id`;
+- routing of invalid records to quarantine.
 
-Lab 5 contains the main data ingestion and transformation pipeline. It implements the Bronze and Silver layers.
+Bronze keeps the original incoming events, while Silver provides the valid deduplicated representation used by downstream processing.
 
-## Bronze layer
+Duplicates are removed from Silver rather than being treated as invalid records.
 
-The Bronze layer keeps the source data with only the transformations needed for ingestion.
+For menu data, the platform uses SCD Type 2 to preserve price history.
 
-### Orders
-
-Orders are read from the `orders_event` Kafka topic using Structured Streaming.
-
-The Bronze table stores the raw JSON together with Kafka metadata such as:
-
-- `topic`
-- `partition`
-- `offset`
-- timestamp
-- ingestion timestamp
-
-The combination of `topic`, `partition` and `offset` can be used as the technical identity of a Kafka event.
-
-### Menu
-
-Menu data is loaded from CSV files using Auto Loader.
-
-The schema also contains `_corrupt_record` so malformed CSV rows can be captured instead of silently ignored.
-
----
-
-## Silver layer
-
-The Silver layer parses and cleans the source data before it is used by Gold.
-
-### Orders
-
-Order events are parsed from JSON and converted to the expected data types.
-
-The Silver table contains fields such as:
-
-```text
-order_id
-item_id
-event_timestamp
-discount_code
-topic
-partition
-offset
-ingest_datetime
-```
-
-Lakeflow expectations are used to validate required fields.
-
-### Menu
-
-Menu data is cleaned before being stored in Silver.
-
-The Silver menu table is maintained as SCD Type 2 using Lakeflow Auto CDC.
-
-```python
-dp.create_auto_cdc_flow(
-    stored_as_scd_type=2
-)
-```
-
-Lakeflow maintains the SCD2 columns:
+Auto CDC manages the different versions of each menu item. Historical validity is represented using:
 
 ```text
 __START_AT
 __END_AT
 ```
 
-This keeps the history when menu information changes.
+This means that previous menu prices remain available in Silver instead of being overwritten.
 
----
+### Gold
 
-# Lab 6
+The Gold layer contains business-ready datasets.
 
-Lab 6 extends the pipeline with the Gold layer and the components needed for analytics, governance and deployment.
-
-## Gold layer
-
-The Gold layer contains the star schema used for analytics.
-
-| Table | Type | Description |
-|---|---|---|
-| `dim_date` | Dimension | Calendar dimension |
-| `dim_menu_item` | Dimension | Current menu item snapshot |
-| `fact_orders` | Fact | Orders enriched with menu and date information |
-
-`fact_orders` joins Silver orders with the menu and date dimensions.
-
-A `date_key` is derived from `event_timestamp` and each fact record gets a `quantity` value of `1`.
-
----
-
-## AI/BI dashboard
-
-The Databricks AI/BI dashboard uses `fact_orders` as its main source.
-
-It contains:
-
-- order count
-- revenue
-- units sold
-- average order value
-- revenue trend
-- category breakdown
-- menu item breakdown
-- filters for date, category and menu item
-
-The dashboard uses individual data permissions so Unity Catalog security rules are evaluated for each user.
-
----
-
-## Alerting
-
-A SQL alert checks order activity in `orders_silver`.
-
-It checks a rolling 24 hour window and sends an email notification if no orders are found.
-
-This helps detect ingestion problems before they affect the Gold layer.
-
----
-
-## Governance
-
-Row level and column level security are applied to `fact_orders`.
-
-A row filter controls which `item_id` values a user can see.
-
-A column mask protects `discount_code`.
-
-The policies are created and applied by the `gold_governance_job`.
-
-Because `fact_orders` is a materialized view the security rules are applied using `ALTER MATERIALIZED VIEW`.
-
----
-
-## CI/CD
-
-GitHub Actions is used for validation and deployment to Dev and Prod.
-
-Deployment and pipeline execution are kept separate.
-
-A push to the Lab 6 feature branch performs:
-
-```text
-Unit tests
-    |
-    v
-Bundle validation
-    |
-    v
-Deploy to Dev
-    |
-    v
-STOP
-```
-
-The pipeline is not executed automatically after deployment.
-
-The main jobs are:
-
-| Job | Trigger | Behavior |
-|---|---|---|
-| `unit-tests` | PR or push | Runs the Lab 7 pytest tests |
-| `validate` | PR or push | Validates the Databricks Asset Bundle |
-| `deploy-dev` | Push to `feature/lab-6-gold` | Deploys the bundle to Dev |
-| `deploy-prod` | Tag `lab6-v*` | Validates and deploys the bundle to Prod |
-| `run-dev-automation` | Manual | Runs the Dev pipeline, DQX, reconciliation and governance |
-| `run-prod-automation` | Manual | Runs the Prod pipeline and governance |
-
-Production deployment is triggered with a Git tag.
-
-```bash
-git tag lab6-vX.Y.Z
-git push origin lab6-vX.Y.Z
-```
-
-This deploys the bundle to Prod but does not execute the production pipeline.
-
-Pipeline execution is started manually from GitHub Actions.
-
----
-
-# Lab 7
-
-Lab 7 adds testing and data quality controls to the existing pipeline.
-
-The goal is to test both the transformation code and the data moving through the medallion architecture.
-
-Unit tests check the transformation logic.
-
-Lakeflow expectations handle invalid records during pipeline processing.
-
-DQX checks the data stored in Databricks.
-
-Reconciliation checks compare data between Silver and Gold.
-
----
-
-## Transformation functions
-
-Transformation logic was moved from the Lakeflow files into importable Python functions.
-
-They are stored in:
-
-```text
-src/transformation_functions/
-├── fact_orders.py
-├── menu.py
-└── orders.py
-```
-
-The Lakeflow pipeline still defines the tables and views but calls these functions for the transformation logic.
-
-For example the orders pipeline calls:
-
-```python
-transform_orders(df)
-```
-
-This makes the transformation logic easier to test without testing the Lakeflow decorators themselves.
-
----
-
-## Unit tests
-
-Unit tests are written with pytest.
-
-Databricks Connect is used so tests can be started from the local IDE while Spark operations run against Databricks compute.
-
-The tests are located in:
-
-```text
-tests/
-├── conftest.py
-└── unit/
-    ├── test_fact_orders.py
-    ├── test_menu.py
-    └── test_orders.py
-```
-
-The current tests cover the main transformation logic for orders, menu and `fact_orders`.
-
-### Orders
-
-The tests check:
-
-- JSON parsing
-- integer casting
-- timestamp parsing
-- Kafka metadata
-- output schema
-
-### Menu
-
-The tests check:
-
-- column selection
-- renaming `category` to `menu_category`
-- expected output values
-
-### Fact orders
-
-The tests check:
-
-- `date_key` creation
-- `quantity` creation
-- joins with the dimensions
-- left join behavior
-
-The unit tests can be executed with:
-
-```bash
-uv run pytest -m unit_test -v
-```
-
-Current result:
-
-```text
-4 passed
-```
-
-The tests are also integrated into GitHub Actions and run before bundle validation and deployment.
-
----
-
-## Data quality with DQX
-
-Databricks Labs DQX is used to check the data stored in Databricks.
-
-The DQX rules are defined in YAML files.
-
-```text
-dq/
-└── silver/
-    ├── menu.yml
-    └── orders.yml
-```
-
-The checks cover the main data quality dimensions used in the lab.
-
-| Dimension | Example |
-|---|---|
-| Completeness | IDs and timestamps must not be null |
-| Uniqueness | Kafka events must be unique |
-| Validity | Values must follow the expected rules |
-| Consistency | Order items must exist in the menu dimension |
-| Timeliness | Event and ingestion timestamps must be consistent |
-
-For orders the Kafka metadata is used for event uniqueness:
-
-```text
-topic + partition + offset
-```
-
-`order_id + item_id` is not used because the same item can legitimately appear more than once in the order event data.
-
-For the SCD2 menu data the historical versions are checked using:
-
-```text
-menu_item_id + __START_AT
-```
-
-There is also a check to make sure each menu item has no more than one active version where:
+For menu items, the Gold dimension exposes only the current SCD Type 2 version:
 
 ```text
 __END_AT IS NULL
 ```
 
-DQX can be executed with:
+Historical versions remain available in Silver.
 
-```bash
-uv run python scripts/run_dqx.py
-```
-
-A successful execution looks like:
-
-```text
-Running DQX checks on: dbr_dev.yanquiel_silver.orders_silver
-
-Total rows:   1050
-Valid rows:   1050
-Invalid rows: 0
-Missing menu references: 0
-
-Running DQX checks on: dbr_dev.yanquiel_silver.menu_silver
-
-Total rows:   32
-Valid rows:   32
-Invalid rows: 0
-Menu items with multiple active versions: 0
-
-DQX PASSED: all data quality checks passed.
-```
-
-If a critical data quality check fails the script returns a non zero exit code.
-
-This allows DQX to be used as a quality gate when the pipeline is executed through GitHub Actions.
+Gold is also the final layer used by the reconciliation process to verify that the results produced by the pipeline are consistent with the processed Silver data.
 
 ---
 
-## Quarantine
+## Lakeflow Pipeline
 
-Lab 7 also adds a quarantine path for invalid order records.
+The transformations are orchestrated through a Databricks Lakeflow pipeline.
 
-The orders flow is:
+The pipeline processes Bronze data, applies the Silver transformations, and creates the Gold datasets.
 
-```text
-orders_bronze
-      |
-      v
-orders_parsed
-    /       \
-   v         v
-orders_silver   orders_quarantine
-```
+Pipeline configuration is deployed as part of the Databricks Asset Bundle, keeping the resource definition together with the source code.
 
-Lakeflow expectations validate the required fields:
+### Final Pipeline Run
 
-```text
-order_id IS NOT NULL
-item_id IS NOT NULL
-event_timestamp IS NOT NULL
-```
+The following graph shows the Lakeflow pipeline after a successful execution.
 
-Valid records continue to `orders_silver`.
-
-Invalid records are written to:
-
-```text
-orders_quarantine
-```
-
-The quarantine table includes a `dq_reason` column that explains why the record was rejected.
-
-The quarantine flow was tested with an invalid Kafka event:
-
-```json
-{
-  "order_id": null,
-  "item_id": 105,
-  "event_timestamp": "2026-08-26T20:05:00Z"
-}
-```
-
-The record was stored in quarantine with:
-
-```text
-order_id: NULL
-item_id: 105
-dq_reason: missing_order_id
-```
-
-A check against `orders_silver` confirmed that no record with a null `order_id` was written there.
-
-Lakeflow handles the routing of invalid records. DQX is kept separate and checks the resulting data.
+![Lakeflow pipeline](docs/images/lakeflow_pipeline.png)
 
 ---
 
-## Reconciliation tests
+## Data Quality
 
-Lab 7 also includes reconciliation checks between Silver and Gold.
+Data quality checks are implemented using Databricks Labs DQX.
 
-The current reconciliation compares:
-
-```text
-orders_silver
-```
-
-with:
-
-```text
-fact_orders
-```
-
-The first check compares the number of rows.
-
-```text
-Silver orders count = Gold fact_orders count
-```
-
-The second check compares the Silver row count with:
-
-```text
-SUM(fact_orders.quantity)
-```
-
-Each fact record has:
-
-```text
-quantity = 1
-```
-
-so the values should match.
-
-The reconciliation checks can be executed with:
-
-```bash
-uv run python scripts/run_reconciliation.py
-```
-
-Example result:
-
-```text
-Running reconciliation checks...
-
-Silver: dbr_dev.yanquiel_silver.orders_silver
-Gold:   dbr_dev.yanquiel_gold.fact_orders
-
-Row-count reconciliation
-Silver orders: 1050
-Gold orders:   1050
-
-Aggregate reconciliation
-Silver rows:        1050
-Gold SUM(quantity): 1050
-
-RECONCILIATION PASSED: Silver and Gold are consistent.
-```
-
-The script returns a non zero exit code if reconciliation fails.
-
----
-
-## Lab 7 in CI/CD
-
-The Lab 7 tests are integrated into the existing GitHub Actions workflow.
-
-Unit tests run before the Databricks Asset Bundle is validated and deployed.
-
-```text
-Push
-  |
-  v
-pytest
-  |
-  v
-Bundle validation
-  |
-  v
-Deploy to Dev
-```
-
-The Lakeflow pipeline itself is not started automatically.
-
-For Dev the pipeline and data quality checks can be started manually from GitHub Actions.
-
-The manual flow is:
+The checks run after the Lakeflow pipeline and validate the processed datasets against the quality rules defined by the project.
 
 ```text
 Lakeflow Pipeline
-       |
-       v
+       │
+       ▼
       DQX
-       |
-       v
-Reconciliation
-       |
-       v
-Governance
+       │
+       ├── Valid records
+       │
+       └── Invalid records / quality failures
 ```
 
-The pipeline trigger waits until the Lakeflow update finishes before DQX starts.
+DQX is integrated into the CI/CD workflow rather than being executed as a separate manual validation step.
 
-If the pipeline fails the workflow stops.
+If the quality checks fail, the corresponding GitHub Actions step fails as well.
 
-If DQX finds a critical data quality problem the workflow stops.
-
-If reconciliation fails the workflow also stops.
-
-This keeps deployment separate from data processing while still allowing the Lab 7 checks to work as gates when the pipeline is executed.
+This makes data quality part of the deployment process.
 
 ---
 
-## Testing and data quality
+## Reconciliation
 
-The project uses different checks for different problems.
+Data quality rules validate individual records, but they do not by themselves guarantee that the relationship between processing layers is correct.
 
-| Tool | Purpose |
+For that reason, the project also performs reconciliation between Silver and Gold.
+
+For orders, the current reconciliation verifies:
+
+```text
+Silver order count
+        │
+        ├──────────► Gold order count
+        │
+        └──────────► Gold SUM(quantity)
+```
+
+The reconciliation script exits with an error if the expected relationships are not satisfied.
+
+This provides an additional validation layer after the Lakeflow pipeline has completed.
+
+---
+
+## RAG Assistant
+
+The project includes a custom Retrieval-Augmented Generation assistant for exploring the Data Platform documentation.
+
+The goal is to allow users to ask questions about the implementation without requiring the language model to rely only on its general knowledge.
+
+The current knowledge base contains Markdown documentation for the main parts of the platform:
+
+```text
+knowledge/
+├── data_platform.md
+├── menu_and_pricing.md
+└── order_processing.md
+```
+
+The documentation covers areas such as:
+
+- platform architecture;
+- order ingestion;
+- Zerobus;
+- validation and deduplication;
+- menu ingestion;
+- menu price history;
+- Silver and Gold processing.
+
+---
+
+## Document Processing
+
+Before the documentation can be searched, it is transformed into smaller chunks.
+
+```text
+Markdown documents
+        │
+        ▼
+Document loading
+        │
+        ▼
+Markdown-aware chunking
+        │
+        ▼
+Delta table
+```
+
+The resulting chunks are stored in:
+
+```text
+dbr_dev.yanquiel_silver.rag_documents
+```
+
+Each chunk keeps metadata that allows the retrieved content to be traced back to its original document.
+
+Change Data Feed is enabled on the Delta table so that it can be used by the AI Search synchronization process.
+
+---
+
+## Databricks AI Search
+
+Databricks AI Search provides the retrieval layer for the RAG implementation.
+
+The project uses the following index:
+
+```text
+dbr_dev.yanquiel_silver.rag_documents_index
+```
+
+The index is built from:
+
+```text
+dbr_dev.yanquiel_silver.rag_documents
+```
+
+The document chunk content is used as the embedding source.
+
+The embedding model is:
+
+```text
+databricks-qwen3-embedding-0-6b
+```
+
+The retrieval process works as follows:
+
+```text
+User question
+      │
+      ▼
+Databricks AI Search
+      │
+      ▼
+Relevant documentation chunks
+      │
+      ▼
+Agent context
+```
+
+Only the relevant chunks are returned for each question instead of passing the entire knowledge base to the language model.
+
+---
+
+## Custom RAG Agent
+
+The conversational layer is implemented as a custom agent running inside a Databricks App.
+
+The agent accesses the AI Search index through Databricks MCP.
+
+For project-related questions, the agent is configured to retrieve information from AI Search before generating an answer.
+
+```text
+User
+ │
+ ▼
+Custom Agent
+ │
+ ▼
+AI Search MCP
+ │
+ ▼
+rag_documents_index
+ │
+ ▼
+Relevant chunks
+ │
+ ▼
+Qwen
+ │
+ ▼
+Grounded answer
+```
+
+The Foundation Model used by the application is:
+
+```text
+databricks-qwen3-next-80b-a3b-instruct
+```
+
+The agent is instructed to base project-related answers on the retrieved documentation and avoid inventing implementation details that are not supported by the knowledge base.
+
+If the available documentation does not contain enough information, the agent is expected to state that instead of generating an unsupported answer.
+
+The response also includes the names of the documentation files actually used.
+
+For example:
+
+```text
+Question:
+How does menu price history work?
+
+        │
+        ▼
+
+AI Search retrieves relevant chunks
+from menu_and_pricing.md
+
+        │
+        ▼
+
+Qwen generates the grounded response
+
+        │
+        ▼
+
+Sources:
+- menu_and_pricing.md
+```
+
+---
+
+## Databricks App
+
+The RAG assistant is exposed through a Databricks App:
+
+```text
+agent-data-platform-rag-v2
+```
+
+The application provides a conversational interface where users can ask questions about the Data Platform.
+
+The application uses:
+
+- a custom Python agent;
+- Databricks AI Search;
+- MCP;
+- a Databricks Foundation Model;
+- MLflow tracing;
+- Databricks Apps as the user interface.
+
+### RAG Assistant
+
+The following example shows the assistant answering a question using the indexed project documentation.
+
+![Data Platform RAG Assistant](docs/images/rag_chat.png)
+
+The source displayed in the response comes from the documentation retrieved for that question.
+
+---
+
+## CI/CD
+
+CI/CD is implemented with GitHub Actions.
+
+A pull request targeting `main` triggers the DEV workflow.
+
+```text
+Pull Request → main
+        │
+        ▼
+    Unit Tests
+        │
+        ▼
+  Validate Bundle
+        │
+        ▼
+    Deploy DEV
+        │
+        ▼
+Post-deploy Automation
+        │
+        ├── Check streaming infrastructure
+        ├── Run setup when required
+        ├── Trigger Lakeflow pipeline
+        ├── Run DQX
+        ├── Run reconciliation
+        └── Run platform automation check
+        │
+        ▼
+   Deploy RAG App
+        │
+        ├── Sync application source
+        └── Deploy Databricks App
+```
+
+The workflow is intentionally sequential. A failed stage prevents the dependent deployment stages from continuing.
+
+### Authentication
+
+GitHub Actions authenticates with Azure using OIDC.
+
+The GitHub service principal is then used to access the Databricks DEV workspace.
+
+This avoids storing a Databricks personal access token in the GitHub Actions workflow for platform deployment.
+
+The service principal has only the permissions required to deploy and operate the resources used by the workflow.
+
+### Successful DEV Deployment
+
+The following run shows the complete DEV workflow finishing successfully, including deployment of the RAG application.
+
+![GitHub Actions DEV deployment](docs/images/github_actions.png)
+
+---
+
+## Databricks Asset Bundles
+
+Databricks Asset Bundles are used to define and deploy the main platform resources.
+
+The bundle manages resources such as:
+
+- Unity Catalog schemas;
+- Unity Catalog Volume;
+- Lakeflow pipeline;
+- Databricks jobs;
+- environment-specific configuration;
+- resource permissions.
+
+The bundle contains separate targets for DEV and PROD.
+
+The current project implementation and automated CI/CD flow are focused on the DEV environment.
+
+Bundle validation:
+
+```bash
+databricks bundle validate -t dev
+```
+
+Bundle deployment:
+
+```bash
+databricks bundle deploy -t dev
+```
+
+---
+
+## Automation
+
+The project contains Python automation for operations that would otherwise need to be performed manually after deployment.
+
+This includes:
+
+- triggering the Lakeflow pipeline;
+- monitoring pipeline execution;
+- checking whether streaming infrastructure already exists;
+- executing the streaming setup job when required;
+- running DQX;
+- reconciling Silver and Gold;
+- executing Databricks jobs.
+
+The scripts are used directly by GitHub Actions during the post-deployment stage.
+
+This keeps deployment and operational validation in the same workflow.
+
+---
+
+## RAG App Deployment
+
+The Data Platform resources and the Databricks App use slightly different deployment mechanisms.
+
+The platform resources are deployed using Databricks Asset Bundles.
+
+The application source is synchronized separately to a shared Workspace location:
+
+```text
+/Workspace/Shared/databricks_apps/agent-data-platform-rag-v2-ci
+```
+
+GitHub Actions then deploys:
+
+```text
+agent-data-platform-rag-v2
+```
+
+using a snapshot deployment.
+
+```text
+GitHub repository
+       │
+       ▼
+databricks sync
+       │
+       ▼
+Shared Workspace source
+       │
+       ▼
+databricks apps deploy
+       │
+       ▼
+SNAPSHOT
+       │
+       ▼
+Running Databricks App
+```
+
+A snapshot deployment creates a deployment from the application source available at that point in time.
+
+---
+
+## Project Structure
+
+The main project structure is:
+
+```text
+data_platform/
+├── app/
+│   ├── agent_server/
+│   ├── app.yaml
+│   ├── databricks.yml
+│   └── pyproject.toml
+│
+├── docs/
+│   └── images/
+│       ├── github_actions.png
+│       ├── lakeflow_pipeline.png
+│       └── rag_chat.png
+│
+├── knowledge/
+│   ├── data_platform.md
+│   ├── menu_and_pricing.md
+│   └── order_processing.md
+│
+├── resources/
+│   ├── schemas.yml
+│   └── ...
+│
+├── scripts/
+│   ├── run_dqx.py
+│   ├── run_reconciliation.py
+│   ├── run_notebook_job.py
+│   ├── trigger_pipeline.py
+│   └── ...
+│
+├── src/
+│   ├── rag/
+│   │   ├── build_documents.py
+│   │   ├── build_rag_documents.py
+│   │   ├── chunk_documents.py
+│   │   ├── create_index.py
+│   │   ├── retriever.py
+│   │   └── sync_index.py
+│   │
+│   └── transformations/
+│       └── ...
+│
+├── tests/
+│
+├── databricks.yml
+├── pyproject.toml
+└── uv.lock
+```
+
+The repository separates transformation logic, resource definitions, automation, RAG components, application code, tests, and documentation.
+
+---
+
+## Development
+
+The project uses Python 3.12 and `uv` for dependency management.
+
+### Install dependencies
+
+```bash
+uv sync
+```
+
+### Run unit tests
+
+```bash
+uv run pytest tests -m unit_test -v
+```
+
+### Validate the DEV bundle
+
+```bash
+databricks bundle validate -t dev
+```
+
+### Deploy the DEV bundle
+
+```bash
+databricks bundle deploy -t dev
+```
+
+For local development, Databricks CLI commands can use the configured DEV profile:
+
+```text
+azure-dev
+```
+
+For example:
+
+```bash
+databricks bundle validate -t dev --profile azure-dev
+```
+
+Credentials and secrets are not stored in the repository.
+
+---
+
+## Technologies
+
+| Area | Technology |
 |---|---|
-| pytest | Tests transformation logic |
-| Databricks Connect | Runs Spark tests against Databricks compute |
-| Lakeflow expectations | Validate records during pipeline processing |
-| Quarantine table | Keeps rejected records for inspection |
-| DQX | Checks the quality of stored data |
-| Reconciliation | Checks data between Silver and Gold |
-
-This gives the project checks at both code and data level.
+| Data Platform | Databricks |
+| Storage | Delta Lake |
+| Governance | Unity Catalog |
+| Streaming ingestion | Databricks Zerobus |
+| File ingestion | Auto Loader |
+| Data pipelines | Databricks Lakeflow |
+| Transformations | PySpark / SQL |
+| Data quality | Databricks Labs DQX |
+| Deployment | Databricks Asset Bundles |
+| Automation | Databricks SDK / CLI |
+| Dependency management | uv |
+| Testing | pytest |
+| CI/CD | GitHub Actions |
+| Authentication | Azure OIDC |
+| RAG storage | Delta Lake |
+| Retrieval | Databricks AI Search |
+| Agent integration | MCP |
+| Foundation Model | Qwen |
+| Application | Databricks Apps |
+| Observability | MLflow |
 
 ---
 
+## Labs Covered
+
+This project brings together concepts developed throughout several Databricks Academy labs.
+
+| Lab | Applied in the project |
+|---|---|
+| Lab 8 | Databricks Asset Bundles and deployment |
+| Lab 9 | Databricks automation |
+| Lab 11 | Data quality and reconciliation |
+| Lab 12 | GenAI, retrieval and RAG application |
+
+Rather than keeping the lab implementations separate, the final project integrates them into the same development and deployment lifecycle.
+
+---
+
+## Final Result
+
+The final project combines data engineering, automation, data quality, CI/CD, and GenAI in a single Databricks solution.
+
+The data flow starts with two ingestion patterns:
+
+```text
+Orders ──► Zerobus ─────────┐
+                            │
+                            ▼
+                          Bronze
+                            │
+Menu ────► Auto Loader ─────┘
+                            │
+                            ▼
+                          Silver
+                            │
+                            ├── Validation
+                            ├── Deduplication
+                            ├── Quarantine
+                            └── SCD Type 2
+                            │
+                            ▼
+                           Gold
+                            │
+                            ├── DQX
+                            └── Reconciliation
+```
+
+The project documentation is exposed through a separate RAG flow:
+
+```text
+Markdown documentation
+        │
+        ▼
+     Chunking
+        │
+        ▼
+   Delta table
+        │
+        ▼
+Databricks AI Search
+        │
+        ▼
+       MCP
+        │
+        ▼
+ Custom RAG Agent
+        │
+        ▼
+      Qwen
+        │
+        ▼
+ Databricks App
+```
+
+Both parts are integrated into the same development workflow:
+
+```text
+Code change
+    │
+    ▼
+Pull Request
+    │
+    ▼
+Unit Tests
+    │
+    ▼
+Bundle Validation
+    │
+    ▼
+DEV Deployment
+    │
+    ▼
+Pipeline + Data Validation
+    │
+    ▼
+RAG App Deployment
+```
+
+The result is a deployable Data Platform where ingestion, transformation, quality validation, automation, and conversational access are part of the same solution.

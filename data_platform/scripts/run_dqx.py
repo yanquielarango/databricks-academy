@@ -6,7 +6,6 @@ from databricks.connect import DatabricksSession
 from databricks.labs.dqx.engine import DQEngine
 from databricks.sdk import WorkspaceClient
 
-
 ORDERS_CHECKS_PATH = Path("dq/silver/orders.yml")
 MENU_CHECKS_PATH = Path("dq/silver/menu.yml")
 

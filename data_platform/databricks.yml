@@ -19,7 +19,6 @@ variables:
     description: Service principal used by Zerobus ingestion
 
 
-
 targets:
 
   dev:
@@ -52,6 +51,7 @@ targets:
           name: landing
           volume_type: MANAGED
 
+
   prod:
     mode: production
 
@@ -68,6 +68,7 @@ targets:
       catalog: dbr_dev
       warehouse_id: 3ed106620db591d9
       owner_email: yanquiel@softserve.academy
+      zerobus_principal: REPLACE_WITH_PROD_ZEROBUS_PRINCIPAL_ID
 
     resources:
       volumes:

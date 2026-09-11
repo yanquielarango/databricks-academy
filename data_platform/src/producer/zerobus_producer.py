@@ -24,7 +24,7 @@ def main():
             batch = orders.iloc[start:end]
 
             if batch.empty:
-                print("No hay más eventos para enviar.")
+                print("No more events to send.")
                 break
 
             send_batch(
@@ -34,7 +34,7 @@ def main():
 
             print(
                 f"Batch {batch_num + 1}: "
-                f"{len(batch)} eventos enviados"
+                f"{len(batch)} events sent"
             )
 
             time.sleep(SECONDS_BETWEEN_BATCHES)
@@ -42,7 +42,7 @@ def main():
     finally:
         stream.close()
 
-    print("Producer terminado")
+    print("Producer finished")
 
 
 if __name__ == "__main__":

@@ -32,7 +32,7 @@ def main(scenario):
             )
 
         print(
-            f"Escenario '{scenario}' enviado"
+            f"Scenario '{scenario}' sent"
         )
 
     finally:

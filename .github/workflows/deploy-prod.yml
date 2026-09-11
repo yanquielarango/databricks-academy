@@ -1,34 +1,292 @@
-name: Deploy PROD
+name: CD PROD
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 jobs:
-  deploy-prod:
+  validate:
+    name: Validate PROD Bundle
     runs-on: ubuntu-latest
     environment: prod
 
+    permissions:
+      id-token: write
+      contents: read
+
     defaults:
       run:
-        working-directory: lab_5
+        working-directory: data_platform
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Azure login with OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
 
       - name: Install Databricks CLI
         uses: databricks/setup-cli@main
 
       - name: Validate PROD bundle
         env:
-          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_PROD }}
-          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_PROD }}
+          DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+          DATABRICKS_AUTH_TYPE: azure-cli
         run: databricks bundle validate -t prod
 
-      - name: Deploy PROD bundle
+
+  deploy-prod:
+    name: Deploy PROD
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: prod
+
+    permissions:
+      id-token: write
+      contents: read
+
+    defaults:
+      run:
+        working-directory: data_platform
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Azure login with OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+
+      - name: Install Databricks CLI
+        uses: databricks/setup-cli@main
+
+      - name: Deploy bundle to PROD
         env:
-          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_PROD }}
-          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PAT_PROD }}
+          DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+          DATABRICKS_AUTH_TYPE: azure-cli
         run: databricks bundle deploy -t prod
+
+
+  post-deploy-automation:
+    name: PROD Post-deploy Automation
+    needs: deploy-prod
+    runs-on: ubuntu-latest
+    environment: prod
+
+    permissions:
+      id-token: write
+      contents: read
+
+    defaults:
+      run:
+        working-directory: data_platform
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install project dependencies
+        run: uv sync
+
+      - name: Azure login with OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+
+      - name: Install Databricks CLI
+        uses: databricks/setup-cli@main
+
+      # ---------------------------------------------------------
+      # Streaming infrastructure
+      # ---------------------------------------------------------
+
+      - name: Check Bronze streaming table
+        id: streaming
+        env:
+          DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+          DATABRICKS_AUTH_TYPE: azure-cli
+        shell: bash
+        run: |
+          set +e
+
+          OUTPUT=$(databricks tables get \
+            dbr_dev.yanquiel_bronze.orders_bronze \
+            2>&1)
+
+          EXIT_CODE=$?
+          set -e
+
+          if [ $EXIT_CODE -eq 0 ]; then
+            echo "Bronze streaming table already exists."
+            echo "setup_required=false" >> "$GITHUB_OUTPUT"
+
+          elif echo "$OUTPUT" | grep -qiE \
+            "does not exist|NOT_FOUND|RESOURCE_DOES_NOT_EXIST"; then
+
+            echo "Bronze streaming table does not exist."
+            echo "setup_required=true" >> "$GITHUB_OUTPUT"
+
+          else
+            echo "Unexpected error checking Bronze table:"
+            echo "$OUTPUT"
+            exit 1
+          fi
+
+      - name: Setup streaming resources
+        if: steps.streaming.outputs.setup_required == 'true'
+        env:
+          DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+          DATABRICKS_AUTH_TYPE: azure-cli
+        run: |
+          databricks bundle run \
+            -t prod \
+            setup_streaming_resources
+
+      # ---------------------------------------------------------
+      # Pipeline
+      # ---------------------------------------------------------
+
+      - name: Get deployed pipeline ID
+        id: pipeline
+        env:
+          DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+          DATABRICKS_AUTH_TYPE: azure-cli
+        shell: bash
+        run: |
+          echo "Reading deployed bundle resources..."
+
+          SUMMARY=$(databricks bundle summary -t prod --force-pull)
+
+          echo "$SUMMARY"
+
+          PIPELINE_URL=$(echo "$SUMMARY" \
+            | awk '
+                /Pipelines:/ {in_pipelines=1; next}
+                in_pipelines && /URL:/ {print $2; exit}
+              ')
+
+          if [ -z "$PIPELINE_URL" ]; then
+            echo "Could not find pipeline URL in bundle summary."
+            exit 1
+          fi
+
+          PIPELINE_ID=$(echo "$PIPELINE_URL" \
+            | sed -E 's#.*/pipelines/([^?]+).*#\1#')
+
+          if [ -z "$PIPELINE_ID" ]; then
+            echo "Could not determine pipeline ID."
+            exit 1
+          fi
+
+          echo "Pipeline ID: $PIPELINE_ID"
+          echo "pipeline_id=$PIPELINE_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Trigger pipeline and monitor
+        env:
+          DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+          DATABRICKS_AUTH_TYPE: azure-cli
+          DATABRICKS_PIPELINE_ID: ${{ steps.pipeline.outputs.pipeline_id }}
+          PIPELINE_FULL_REFRESH: "false"
+        run: |
+          uv run python -u scripts/trigger_pipeline.py
+
+      # ---------------------------------------------------------
+      # Data quality
+      # ---------------------------------------------------------
+
+      - name: Run DQX checks
+        env:
+          DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+          DATABRICKS_AUTH_TYPE: azure-cli
+        run: |
+          uv run python -u scripts/run_dqx.py
+
+      # ---------------------------------------------------------
+      # Reconciliation
+      # ---------------------------------------------------------
+
+      - name: Run reconciliation checks
+        env:
+          DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+          DATABRICKS_AUTH_TYPE: azure-cli
+        run: |
+          uv run python -u scripts/run_reconciliation.py
+
+      # ---------------------------------------------------------
+      # Lab 9 platform automation
+      # ---------------------------------------------------------
+
+      - name: Run Lab 9 notebook automation
+        env:
+          DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+          DATABRICKS_AUTH_TYPE: azure-cli
+          BUNDLE_ROOT: /Workspace/Users/yanquiel@softserve.academy/.bundle/data_platform/prod
+        run: |
+          uv run python -u scripts/run_notebook_job.py
+
+
+  deploy-rag-app:
+    name: Deploy PROD RAG App
+    needs: post-deploy-automation
+    runs-on: ubuntu-latest
+    environment: prod
+
+    permissions:
+      id-token: write
+      contents: read
+
+    defaults:
+      run:
+        working-directory: data_platform/app
+
+    env:
+      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+      DATABRICKS_AUTH_TYPE: azure-cli
+      APP_NAME: ${{ vars.APP_NAME }}
+      APP_SOURCE_PATH: ${{ vars.APP_SOURCE_PATH }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Azure login with OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+
+      - name: Install Databricks CLI
+        uses: databricks/setup-cli@main
+
+      - name: Check Databricks authentication
+        run: |
+          databricks current-user me
+
+      - name: Sync RAG app source
+        run: |
+          databricks sync \
+            . \
+            "$APP_SOURCE_PATH"
+
+      - name: Deploy RAG app
+        run: |
+          databricks apps deploy "$APP_NAME" \
+            --source-code-path "$APP_SOURCE_PATH" \
+            --mode SNAPSHOT

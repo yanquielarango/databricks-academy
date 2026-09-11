@@ -48,7 +48,6 @@ def test_transform_orders(spark):
 
     row = result.collect()[0]
 
-    # Values
     assert row.order_details_id == 1001
     assert row.order_id == 101
     assert row.item_id == 5
@@ -58,7 +57,7 @@ def test_transform_orders(spark):
     assert row.event_timestamp is not None
     assert row.ingest_datetime is not None
 
-    # Types explicitly produced by the transformation
+ 
     schema = result.schema
 
     assert isinstance(schema["order_details_id"].dataType, LongType)
