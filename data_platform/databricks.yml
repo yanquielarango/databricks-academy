@@ -1,0 +1,101 @@
+bundle:
+  name: data_platform
+  uuid: 7d1554c9-165a-40a9-a025-63c392849200
+
+include:
+  - resources/*.yml
+
+variables:
+  catalog:
+    description: The catalog to use
+
+  warehouse_id:
+    description: The SQL Warehouse ID to use
+
+  owner_email:
+    description: Email of the user to grant permissions and alert notifications to
+
+  zerobus_principal:
+    description: Service principal used by Zerobus ingestion
+
+
+targets:
+
+  dev:
+    default: true
+
+    workspace:
+      host: https://adb-7405614724722402.2.azuredatabricks.net
+      root_path: /Workspace/Users/yanquiel@yagdata.com/.bundle/${bundle.name}/${bundle.target}
+
+    presets:
+      name_prefix: ''
+      trigger_pause_status: "PAUSED"
+      source_linked_deployment: false
+      tags:
+        Environment: ${bundle.target}
+        Project: ${bundle.name}
+        dev: ${workspace.current_user.userName}
+
+    variables:
+      catalog: dbr_dev
+      warehouse_id: d6092c263a047666
+      owner_email: yanquiel@yagdata.com
+      zerobus_principal: 0aaa12a8-50a6-4d4a-b149-2805490f592f
+
+    resources:
+      volumes:
+        landing_volume:
+          catalog_name: ${var.catalog}
+          schema_name: ${resources.schemas.bronze_schema.name}
+          name: landing
+          volume_type: MANAGED
+
+
+  prod:
+    mode: production
+
+    workspace:
+      host: https://adb-7405604503619901.1.azuredatabricks.net
+      root_path: /Workspace/Users/yanquiel@softserve.academy/.bundle/${bundle.name}/${bundle.target}
+
+    presets:
+      tags:
+        Environment: ${bundle.target}
+        Project: ${bundle.name}
+
+    variables:
+      catalog: dbr_dev
+      warehouse_id: 3ed106620db591d9
+      owner_email: yanquiel@softserve.academy
+      zerobus_principal: REPLACE_WITH_PROD_ZEROBUS_PRINCIPAL_ID
+
+    resources:
+      volumes:
+        landing_volume:
+          catalog_name: ${var.catalog}
+          schema_name: ${resources.schemas.bronze_schema.name}
+          name: landing
+          volume_type: EXTERNAL
+          storage_location: abfss://yanquiel@dlspl21databricks.dfs.core.windows.net/landing
+
+      schemas:
+        gold_schema:
+          catalog_name: ${var.catalog}
+          name: yanquiel_gold
+
+          grants:
+            - principal: ${var.owner_email}
+              privileges:
+                - USE_SCHEMA
+                - SELECT
+                - MODIFY
+
+            - principal: lbiel@softserve.academy
+              privileges:
+                - USE_SCHEMA
+                - SELECT
+
+    permissions:
+      - user_name: yanquiel@softserve.academy
+        level: CAN_MANAGE

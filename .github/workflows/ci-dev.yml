@@ -1,13 +1,62 @@
-name: CD PROD
+name: CI DEV
 
 on:
-  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
 
 jobs:
-  validate:
-    name: Validate PROD Bundle
+  unit-tests:
+    name: Unit Tests
     runs-on: ubuntu-latest
-    environment: prod
+    environment: dev
+
+    permissions:
+      id-token: write
+      contents: read
+
+    defaults:
+      run:
+        working-directory: data_platform
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install project dependencies
+        run: uv sync
+
+      - name: Azure login with OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+
+      - name: Run unit tests
+        env:
+          DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+          DATABRICKS_AUTH_TYPE: azure-cli
+        run: uv run pytest tests -m unit_test -v
+
+
+  validate:
+    name: Validate Bundle
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    environment: dev
 
     permissions:
       id-token: write
@@ -31,18 +80,18 @@ jobs:
       - name: Install Databricks CLI
         uses: databricks/setup-cli@main
 
-      - name: Validate PROD bundle
+      - name: Validate bundle
         env:
           DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
           DATABRICKS_AUTH_TYPE: azure-cli
-        run: databricks bundle validate -t prod
+        run: databricks bundle validate -t dev
 
 
-  deploy-prod:
-    name: Deploy PROD
+  deploy-dev:
+    name: Deploy DEV
     needs: validate
     runs-on: ubuntu-latest
-    environment: prod
+    environment: dev
 
     permissions:
       id-token: write
@@ -66,18 +115,18 @@ jobs:
       - name: Install Databricks CLI
         uses: databricks/setup-cli@main
 
-      - name: Deploy bundle to PROD
+      - name: Deploy bundle to DEV
         env:
           DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
           DATABRICKS_AUTH_TYPE: azure-cli
-        run: databricks bundle deploy -t prod
+        run: databricks bundle deploy -t dev
 
 
   post-deploy-automation:
-    name: PROD Post-deploy Automation
-    needs: deploy-prod
+    name: Post-deploy Automation
+    needs: deploy-dev
     runs-on: ubuntu-latest
-    environment: prod
+    environment: dev
 
     permissions:
       id-token: write
@@ -155,7 +204,7 @@ jobs:
           DATABRICKS_AUTH_TYPE: azure-cli
         run: |
           databricks bundle run \
-            -t prod \
+            -t dev \
             setup_streaming_resources
 
       # ---------------------------------------------------------
@@ -171,7 +220,7 @@ jobs:
         run: |
           echo "Reading deployed bundle resources..."
 
-          SUMMARY=$(databricks bundle summary -t prod --force-pull)
+          SUMMARY=$(databricks bundle summary -t dev --force-pull)
 
           echo "$SUMMARY"
 
@@ -229,23 +278,23 @@ jobs:
           uv run python -u scripts/run_reconciliation.py
 
       # ---------------------------------------------------------
-      # Lab 9 platform automation
+      # Platform automation check
       # ---------------------------------------------------------
 
       - name: Run Lab 9 notebook automation
         env:
           DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
           DATABRICKS_AUTH_TYPE: azure-cli
-          BUNDLE_ROOT: /Workspace/Users/yanquiel@softserve.academy/.bundle/data_platform/prod
+          BUNDLE_ROOT: /Workspace/Users/yanquiel@yagdata.com/.bundle/data_platform/dev
         run: |
           uv run python -u scripts/run_notebook_job.py
 
 
   deploy-rag-app:
-    name: Deploy PROD RAG App
+    name: Deploy RAG App
     needs: post-deploy-automation
     runs-on: ubuntu-latest
-    environment: prod
+    environment: dev
 
     permissions:
       id-token: write
@@ -258,8 +307,8 @@ jobs:
     env:
       DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
       DATABRICKS_AUTH_TYPE: azure-cli
-      APP_NAME: ${{ vars.APP_NAME }}
-      APP_SOURCE_PATH: ${{ vars.APP_SOURCE_PATH }}
+      APP_NAME: agent-data-platform-rag-v2
+      APP_SOURCE_PATH: /Workspace/Shared/databricks_apps/agent-data-platform-rag-v2-ci
 
     steps:
       - name: Checkout repository
@@ -284,6 +333,10 @@ jobs:
           databricks sync \
             . \
             "$APP_SOURCE_PATH"
+
+      - name: Start RAG app
+        run: |
+          databricks apps start "$APP_NAME"
 
       - name: Deploy RAG app
         run: |

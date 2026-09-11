@@ -1,0 +1,12 @@
+resources:
+  apps:
+    agent_data_platform_rag_v2:
+      name: agent-data-platform-rag-v2
+      description: RAG agent for the data platform project using Databricks AI Search and a Databricks Foundation Model.
+      source_code_path: ../src/app
+      resources:
+        - description: The destination experiment for traces from the agent's execution.
+          experiment:
+            experiment_id: "1627925471992516"
+            permission: CAN_EDIT
+          name: experiment
