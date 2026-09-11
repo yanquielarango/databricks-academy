@@ -334,6 +334,10 @@ jobs:
             . \
             "$APP_SOURCE_PATH"
 
+      - name: Start RAG app
+        run: |
+          databricks apps start "$APP_NAME"
+
       - name: Deploy RAG app
         run: |
           databricks apps deploy "$APP_NAME" \
