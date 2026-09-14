@@ -1,0 +1,84 @@
+resources:
+  jobs:
+    cdc_pipeline:
+      name: ${bundle.target}-cdc-pipeline
+
+      tasks:
+
+      
+        - task_key: cdc_setup
+
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+
+            file:
+              path: ../src/03_cdc_setup.sql
+
+            parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+
+
+        - task_key: simulate_changes
+
+          depends_on:
+            - task_key: cdc_setup
+
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+
+            file:
+              path: ../src/04_cdc_simulate_changes.sql
+
+            parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+
+
+   
+        - task_key: simulate_second_batch
+
+          depends_on:
+            - task_key: simulate_changes
+
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+
+            file:
+              path: ../src/06_cdc_simulate_second_batch.sql
+
+            parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+
+
+        - task_key: merge_cdc_changes
+
+          depends_on:
+            - task_key: simulate_second_batch
+
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+
+            file:
+              path: ../src/05_cdc_merge.sql
+
+            parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+
+
+        - task_key: build_customer_history
+
+          depends_on:
+            - task_key: merge_cdc_changes
+
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+
+            file:
+              path: ../src/07_cdc_history.sql
+
+            parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
