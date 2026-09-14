@@ -1,0 +1,55 @@
+resources:
+
+  jobs:
+
+    federation_setup:
+      name: ${bundle.target}-federation-setup
+
+      tasks:
+
+        - task_key: create_federation
+
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+
+            file:
+              path: ../src/00_create_federation.sql
+
+            parameters:
+              connection_name: ${var.connection_name}
+              foreign_catalog: ${var.foreign_catalog}
+              neon_host: ${var.neon_host}
+
+
+        - task_key: ingest_customer_to_delta
+
+          depends_on:
+            - task_key: create_federation
+
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+
+            file:
+              path: ../src/01_ingest_customer_to_delta.sql
+
+            parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+              foreign_catalog: ${var.foreign_catalog}
+
+
+        - task_key: join_external_with_delta
+
+          depends_on:
+            - task_key: ingest_customer_to_delta
+
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+
+            file:
+              path: ../src/02_join_external_with_delta.sql
+
+            parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+              foreign_catalog: ${var.foreign_catalog}
